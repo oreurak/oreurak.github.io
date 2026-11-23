@@ -1075,8 +1075,8 @@ async function saveMember(form) {
   if (!name) return showErr(err, '이름을 적어주세요.');
   if (memberList().some(m => m.id !== id && norm(m.name) === name)) return showErr(err, "같은 이름이 이미 있어요. 동명이인은 '김민수A'처럼 구분해주세요.");
   if (id === meId && !admin) return showErr(err, '내 운영진 권한은 직접 끌 수 없어요. 다른 운영진에게 부탁해주세요.');
-  closeSheet(); await put('members', id, { name, team, admin });
-  toast('저장했어요.');
+  closeSheet();
+  if (await put('members', id, { name, team, admin })) toast('저장했어요.');
 }
 function openBulk() {
   openSheet(`<form id="bulk-form">
@@ -1122,8 +1122,10 @@ async function saveMission(form) {
   const title = document.getElementById('qf-title').value.trim(), desc = document.getElementById('qf-desc').value.trim();
   if (!title) return showErr(err, '미션 이름을 적어주세요.');
   const no = old ? old.no : missionList().reduce((a, m) => Math.max(a, m.no || 0), 0) + 1;
-  closeSheet(); await put('missions', id, { no, title, desc, active: document.getElementById('qf-on').getAttribute('aria-checked') === 'true' });
-  toast('저장했어요.');
+  /* 시트를 닫으면 입력 칸이 사라지므로 값은 닫기 전에 다 읽어 둔다. */
+  const active = document.getElementById('qf-on').getAttribute('aria-checked') === 'true';
+  closeSheet();
+  if (await put('missions', id, { no, title, desc, active })) toast('저장했어요.');
 }
 
 function armed(btn, label) {
