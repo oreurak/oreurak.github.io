@@ -149,7 +149,10 @@ textarea.inp{resize:vertical;line-height:1.5}
 .adminlink{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:10px 16px;border-radius:14px;background:var(--ink);color:#fff;font-weight:700}
 .adminlink span{font-weight:400;font-size:12.5px;opacity:.75}
 .rows{background:var(--panel);border-radius:18px;overflow:hidden;margin-top:10px}
-.trow{display:grid;grid-template-columns:54px 1fr auto;align-items:center;gap:12px;padding:13px 16px 13px 14px;min-height:68px}
+.trow{display:grid;grid-template-columns:34px 50px 1fr auto;align-items:center;gap:10px;padding:13px 16px 13px 12px;min-height:68px}
+.rk{justify-self:center;font-size:12.5px;font-weight:700;color:var(--ink-2);white-space:nowrap}
+.rk.r1{background:var(--ink);color:#fff;border-radius:99px;padding:2px 7px}
+.sec+.hint{margin-top:2px}
 .trow+.trow{border-top:1px solid var(--line)}
 .trow .tape{font-family:var(--display);font-weight:400;font-size:19px;padding:3px 9px 4px;justify-self:start}
 .trow-m{min-width:0}
@@ -200,7 +203,7 @@ textarea.inp{resize:vertical;line-height:1.5}
 .cell.active .ct{font-size:11.5px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
 .cell.done{background:var(--c);color:var(--cf)}
 .cell.done img,.cell.done video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.cell.done .ct{font-size:11px;font-weight:700;padding:6px;text-align:center;line-height:1.3}
+.cell.done .ct{align-self:start;margin-top:8px;padding:0 6px;font-size:11px;font-weight:700;text-align:center;line-height:1.3;max-height:2.6em;overflow:hidden;word-break:keep-all}
 .cell.done .tape{position:absolute;left:-2px;bottom:6px;font-size:11px;padding:1px 9px 2px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
 .cell.pop{animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
 @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
@@ -247,6 +250,12 @@ textarea.inp{resize:vertical;line-height:1.5}
 .madd{aspect-ratio:1;border-radius:10px;border:1.5px dashed var(--ink-3);display:grid;place-content:center;justify-items:center;gap:2px;font-size:11.5px;font-weight:600;color:var(--ink-2);cursor:pointer;background:#fff}
 .madd b{font-size:24px;line-height:1;font-weight:400;color:var(--ink)}
 .madd input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.vplay{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:rgba(23,26,33,.72)}
+.vplay::after{content:"";position:absolute;left:10px;top:7px;border:6px solid transparent;border-left:9px solid #fff;border-right:0}
+.vtile{font-size:11px;font-weight:700}
+.mthumb .vtile{position:absolute;inset:0;display:grid;place-items:center;color:#fff}
+.meter{height:8px;border-radius:99px;background:var(--line);margin-top:10px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--ink);border-radius:99px}
 .vbadge{position:absolute;left:5px;bottom:5px;font-size:10px;font-weight:700;background:rgba(23,26,33,.8);color:#fff;border-radius:4px;padding:1px 5px}
 
 /* ── 룰렛 ─────────────────────────── */
@@ -346,6 +355,8 @@ const CONFIG = {
 const PASSWORD = '0000';
 const TEAMS = 7, CELLS = 16, MILESTONES = [10, 16];
 const MAX_MEDIA = 4, MAX_VIDEO_MB = 50;
+/* 올라온 파일 합계가 이 값을 넘으면 영상 업로드를 막는다 (Supabase 무료 저장 1GB 기준). 유료로 올리면 키우면 된다. */
+const STORAGE_BUDGET_MB = 900;
 const EVENT = { date: '11.28 토', place: '피커스 종로점' };
 const COLORS = [null, ['#FFC533','#171A21'], ['#FF7F32','#171A21'], ['#108A5C','#fff'], ['#2D5BE3','#fff'], ['#E23B3B','#fff'], ['#7A4FD8','#fff'], ['#DB3A82','#fff']];
 const FIRST_ADMIN = '김준형';
@@ -396,7 +407,7 @@ function localAdapter() {
       const o = read();
       return Object.keys(o).map(k => { const i = k.indexOf('/'); return { col: k.slice(0, i), id: k.slice(i + 1), data: o[k] }; });
     },
-    watch(cb) { window.addEventListener('storage', e => { if (e.key === KEY) cb(); }); },
+    watch(onRow, onAll) { window.addEventListener('storage', e => { if (e.key === KEY) onAll(); }); },
     async set(col, id, data) { const o = read(); o[col + '/' + id] = data; write(o); },
     async remove(col, id) { const o = read(); delete o[col + '/' + id]; write(o); },
     async upload(path, blob) { await tx('readwrite', s => s.put(blob, path)); return path; },
@@ -412,12 +423,17 @@ function supabaseAdapter(cfg) {
   return {
     mode: 'remote',
     async load() { return ok(await sb.from('docs').select('col,id,data')); },
-    watch(cb) {
-      sb.channel('docs-all').on('postgres_changes', { event: '*', schema: 'public', table: 'docs' }, () => cb()).subscribe();
+    watch(onRow, onAll) {
+      let joined = false;
+      sb.channel('docs-all').on('postgres_changes', { event: '*', schema: 'public', table: 'docs' }, p => {
+        const del = p.eventType === 'DELETE', r = del ? p.old : p.new;
+        if (!r || !r.col || !r.id) return onAll();
+        onRow({ col: r.col, id: r.id, data: del ? null : r.data });
+      }).subscribe(status => { if (status === 'SUBSCRIBED') { if (joined) onAll(); joined = true; } });
     },
     async set(col, id, data) { ok(await sb.from('docs').upsert({ col, id, data, updated_at: new Date().toISOString() })); },
     async remove(col, id) { ok(await sb.from('docs').delete().eq('col', col).eq('id', id)); },
-    async upload(path, blob) { ok(await bucket().upload(path, blob, { contentType: blob.type || 'application/octet-stream' })); return path; },
+    async upload(path, blob) { ok(await bucket().upload(path, blob, { contentType: blob.type || 'application/octet-stream', cacheControl: '31536000' })); return path; },
     async url(path) { return bucket().getPublicUrl(path).data.publicUrl; },
     async removeMedia(path) { await bucket().remove([path]); }
   };
@@ -459,10 +475,10 @@ function pool(t) {
   return missionList().filter(m => m.active !== false && !used.has(m.id));
 }
 
-async function resync() {
+async function resync(force) {
   const at = epoch;
   const rows = await adapter.load();
-  if (at !== epoch) return;
+  if (at !== epoch && !force) return;
   const n = { members: {}, missions: {}, cells: {}, settings: {} };
   rows.forEach(r => { if (n[r.col]) n[r.col][r.id] = r.data; });
   Object.assign(S, n);
@@ -502,12 +518,19 @@ async function boot() {
         await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js');
         adapter = supabaseAdapter(CONFIG);
       } else adapter = localAdapter();
-      let pending;
-      adapter.watch(() => { clearTimeout(pending); pending = setTimeout(() => resync().then(render).catch(() => {}), 150); });
-      document.addEventListener('visibilitychange', () => { if (!document.hidden && ready) resync().then(render).catch(() => {}); });
-      setInterval(() => { if (!document.hidden && ready && adapter.mode === 'remote') resync().then(render).catch(() => {}); }, 20000);
+      /* 바뀐 한 줄만 받아서 반영한다. 전체 다시 읽기는 재접속·화면 복귀 때와 2분마다 한 번만. */
+      let pending, paint;
+      const full = () => { clearTimeout(pending); pending = setTimeout(() => resync().then(render).catch(() => {}), 150); };
+      adapter.watch(row => {
+        if (!ready || !S[row.col]) return;
+        epoch++;
+        if (row.data === null) delete S[row.col][row.id]; else S[row.col][row.id] = row.data;
+        clearTimeout(paint); paint = setTimeout(render, 80);
+      }, full);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden && ready) full(); });
+      setInterval(() => { if (!document.hidden && ready && adapter.mode === 'remote') full(); }, 120000);
     }
-    await resync();
+    await resync(true);
     await seedIfEmpty();
     try { meId = localStorage.getItem('oreurak:me'); } catch (e) {}
     ready = true; failed = false;
@@ -579,8 +602,20 @@ function nextGoalText(n) {
   return g ? `추첨권까지 ${g - n}칸` : '추첨권 2장 모두 확보';
 }
 
+/* 완등 수가 많은 순. 같으면 그 수에 먼저 도달한 조가 앞. 아직 0칸이면 순위 없음. */
+function ranking() {
+  const rows = [];
+  for (let t = 1; t <= TEAMS; t++) {
+    const cs = teamCells(t).filter(c => c && c.done);
+    rows.push({ t, n: cs.length, last: cs.reduce((a, c) => Math.max(a, c.doneAt || 0), 0) });
+  }
+  rows.sort((a, b) => b.n - a.n || a.last - b.last || a.t - b.t);
+  rows.forEach((r, i) => { r.rank = r.n ? i + 1 : 0; });
+  return rows;
+}
+
 function homeView() {
-  const m = meObj(); let h = topbar();
+  const m = meObj(), rank = ranking(), mine = rank.find(r => r.t === m.team); let h = topbar();
   if (m.team) {
     const n = doneCount(m.team);
     h += `<a class="hero tc${m.team}" href="#team-${m.team}">
@@ -588,39 +623,37 @@ function homeView() {
       <span class="hold h5" style="width:54px;height:48px;right:78px;top:22px"></span>
       <span class="hero-k">우리 조</span>
       <span class="hero-n">${m.team}<small>조</small></span>
-      <span class="hero-r"><span class="hero-p"><b>${n}</b> / ${CELLS} 완등</span><span class="hero-s">${nextGoalText(n)}</span></span>
+      <span class="hero-r"><span class="hero-p"><b>${n}</b> / ${CELLS} 완등</span><span class="hero-s">${mine && mine.rank ? '현재 ' + mine.rank + '위 · ' : ''}${nextGoalText(n)}</span></span>
       <span class="hero-go">우리 조 빙고판 열기</span></a>`;
   } else {
     h += `<div class="note">${m.admin ? '운영진 계정이에요. 조 배정 없이 모든 조의 빙고판을 관리할 수 있어요.' : '아직 조가 정해지지 않았어요. 운영진에게 말해주세요.'}</div>`;
   }
   if (m.admin) h += `<a class="adminlink" href="#admin">운영진 페이지<span>참가자 · 미션 · 현황</span></a>`;
-  h += `<section><h2 class="sec">전체 조</h2><div class="rows">`;
-  for (let t = 1; t <= TEAMS; t++) {
-    const n = doneCount(t), names = teamMembers(t).map(x => x.name).join(', ');
-    h += `<a class="trow tc${t}" href="#team-${t}"><span class="tape">${t}조</span>
+  h += `<section><h2 class="sec">조 순위</h2><p class="hint">완등이 많은 조가 위로 올라가요. 같으면 먼저 달성한 조가 앞이에요.</p><div class="rows">`;
+  for (const r of rank) {
+    const t = r.t, n = r.n, names = teamMembers(t).map(x => x.name).join(', ');
+    h += `<a class="trow tc${t}" href="#team-${t}"><span class="rk${r.rank === 1 ? ' r1' : ''}">${r.rank ? r.rank + '위' : '–'}</span><span class="tape">${t}조</span>
       <span class="trow-m"><b>${n} / ${CELLS} 완등${m.team === t ? '<em>우리 조</em>' : ''}</b><p>${esc(names) || '아직 조원이 없어요'}</p></span>${mini(t)}</a>`;
   }
   return h + `</div></section>`;
 }
 
-function mediaSrc(m, thumb) {
-  const u = urlCache[m.p] || '';
-  return u ? (m.t === 'video' && thumb ? u + '#t=0.1' : u) : '';
-}
 function mediaTag(m, thumb) {
-  const src = mediaSrc(m, thumb), a = `data-m="${esc(m.p)}"${thumb ? ' data-thumb="1"' : ''}${src ? ` src="${esc(src)}"` : ''}`;
-  if (m.t === 'video') return thumb ? `<video ${a} muted playsinline preload="metadata"></video>` : `<video ${a} controls playsinline preload="metadata"></video>`;
-  return `<img ${a} alt="" loading="lazy">`;
+  const img = p => { const u = urlCache[p] || ''; return `<img data-m="${esc(p)}"${u ? ` src="${esc(u)}"` : ''} alt="" loading="lazy">`; };
+  if (thumb) {
+    if (m.th) return img(m.th) + (m.t === 'video' ? '<span class="vplay"></span>' : '');
+    return m.t === 'video' ? '<span class="vtile">영상</span>' : img(m.p);
+  }
+  if (m.t !== 'video') return img(m.p);
+  const u = urlCache[m.p] || '', pu = m.th ? (urlCache[m.th] || '') : '';
+  return `<video data-m="${esc(m.p)}"${u ? ` src="${esc(u)}"` : ''}${m.th ? ` data-poster="${esc(m.th)}"` : ''}${pu ? ` poster="${esc(pu)}"` : ''} controls playsinline preload="${m.th ? 'none' : 'metadata'}"></video>`;
 }
 function hydrate(root) {
-  root.querySelectorAll('[data-m]:not([src])').forEach(async el => {
-    const p = el.dataset.m;
-    try {
-      if (!urlCache[p]) urlCache[p] = await adapter.url(p);
-      if (urlCache[p] && el.isConnected) el.src = urlCache[p] + (el.tagName === 'VIDEO' && el.dataset.thumb ? '#t=0.1' : '');
-    } catch (e) {}
-  });
+  const get = async p => urlCache[p] || (urlCache[p] = await adapter.url(p));
+  root.querySelectorAll('[data-m]:not([src])').forEach(async el => { try { const u = await get(el.dataset.m); if (u && el.isConnected) el.src = u; } catch (e) {} });
+  root.querySelectorAll('[data-poster]:not([poster])').forEach(async el => { try { const u = await get(el.dataset.poster); if (u && el.isConnected) el.poster = u; } catch (e) {} });
 }
+const usedBytes = () => Object.values(S.cells).reduce((a, c) => a + (c.media || []).reduce((x, m) => x + (m.s || 0), 0), 0);
 
 function cellHTML(t, i, c, openable) {
   if (!c) return `<button class="cell locked${openable ? ' openable' : ''}" data-act="${openable ? 'spin' : 'locked'}" data-t="${t}" data-i="${i}" aria-label="${i + 1}번 칸, ${openable ? '눌러서 미션 뽑기' : '잠김'}"><span class="hold h${i % 8}"><b>${i + 1}</b></span></button>`;
@@ -732,7 +765,9 @@ function adminView() {
       rows += `<div class="srow tc${t}"><span class="tape">${t}조</span><span><b>${n} / ${CELLS} 완등</b><p>추첨권 1인당 ${k}장 · ${ppl}명 · 합계 ${k * ppl}장</p></span><button data-act="reset-team" data-t="${t}">초기화</button></div>`;
     }
     const req = !S.settings.main || S.settings.main.requireMedia !== false;
+    const usedMb = Math.round(usedBytes() / 1048576);
     h += `<div class="bar"><p>지금까지 나간 추첨권 <b>${total}장</b></p></div><div class="group">${rows}</div>
+      <div class="setting"><span class="label">올라온 사진·영상 약 ${usedMb} MB<small>${STORAGE_BUDGET_MB} MB를 넘으면 영상 업로드가 막히고 사진만 올릴 수 있어요.</small></span><div class="meter"><i style="width:${Math.min(100, Math.round(usedMb / STORAGE_BUDGET_MB * 100))}%"></i></div></div>
       <div class="setting field row"><span class="label">인증에 사진·영상 필수<small>끄면 제목과 사람만으로도 인증할 수 있어요. 업로드가 막혔을 때 쓰세요.</small></span><button class="switch" role="switch" aria-checked="${req}" data-act="toggle-media" aria-label="인증에 사진·영상 필수"></button></div>`;
   }
   return h;
@@ -811,7 +846,7 @@ let pf = null;
 function openProof(t, i) {
   const c = teamCells(t)[i];
   if (!c || !canEdit(t)) return;
-  pf = { t, i, media: (c.media || []).map(m => ({ p: m.p, t: m.t })), by: new Set(c.by || []), busy: false };
+  pf = { t, i, media: (c.media || []).map(m => Object.assign({}, m)), by: new Set(c.by || []), busy: false };
   const members = teamMembers(t);
   openSheet(`<form id="proof-form" class="tc${t}" novalidate>
     <h2>${c.done ? '인증 내용 수정' : '완등 인증'}</h2><p class="sheet-sub">No.${c.no} ${esc(c.mTitle)}</p>
@@ -828,11 +863,8 @@ function openProof(t, i) {
 function drawProofMedia() {
   const box = document.getElementById('pf-media'); if (!box) return;
   box.innerHTML = pf.media.map((m, k) => {
-    const src = m.url || mediaSrc(m, true);
-    const tag = m.t === 'video'
-      ? `<video ${m.p ? `data-m="${esc(m.p)}" data-thumb="1"` : ''}${src ? ` src="${esc(src)}"` : ''} muted playsinline preload="metadata"></video><span class="vbadge">영상</span>`
-      : `<img ${m.p ? `data-m="${esc(m.p)}"` : ''}${src ? ` src="${esc(src)}"` : ''} alt="">`;
-    return `<div class="mthumb">${tag}<button type="button" data-act="pf-rm" data-k="${k}" aria-label="삭제">×</button></div>`;
+    const inner = m.url ? (m.t === 'video' ? `<video src="${esc(m.url)}" muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`) : mediaTag(m, true);
+    return `<div class="mthumb">${inner}${m.t === 'video' ? '<span class="vbadge">영상</span>' : ''}<button type="button" data-act="pf-rm" data-k="${k}" aria-label="삭제">×</button></div>`;
   }).join('') + (pf.media.length < MAX_MEDIA ? `<label class="madd"><b>+</b>추가<input type="file" id="pf-file" accept="image/*,video/*" multiple></label>` : '');
   hydrate(box);
 }
@@ -842,6 +874,8 @@ function addProofFiles(files) {
     if (pf.media.length >= MAX_MEDIA) { showErr(err, `사진·영상은 ${MAX_MEDIA}개까지 올릴 수 있어요.`); break; }
     const isV = f.type.startsWith('video/'), isI = f.type.startsWith('image/');
     if (!isV && !isI) { showErr(err, '사진이나 영상 파일만 올릴 수 있어요.'); continue; }
+    const queued = pf.media.reduce((a, m) => a + (m.file ? m.file.size : 0), 0);
+    if (isV && usedBytes() + queued + f.size > STORAGE_BUDGET_MB * 1048576) { showErr(err, '영상 저장 공간이 거의 찼어요. 이 미션은 사진으로 인증해주세요.'); continue; }
     if (isV && f.size > MAX_VIDEO_MB * 1048576) { showErr(err, `영상은 ${MAX_VIDEO_MB}MB까지 올릴 수 있어요. 더 짧게 찍거나 화질을 낮춰주세요.`); continue; }
     pf.media.push({ file: f, t: isV ? 'video' : 'image', url: URL.createObjectURL(f) + (isV ? '#t=0.1' : '') });
   }
@@ -858,6 +892,31 @@ async function shrink(file) {
     const b = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.82));
     return b && b.size < file.size ? b : file;
   } catch (e) { return file; }
+}
+/* 빙고판에는 작은 미리보기 그림만 보여 준다. 영상은 눌러서 재생할 때만 내려받는다. */
+async function makeThumb(file, isVideo) {
+  let url;
+  try {
+    let src, w, h;
+    if (isVideo) {
+      const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto';
+      url = URL.createObjectURL(file); v.src = url;
+      await new Promise((res, rej) => {
+        const to = setTimeout(() => rej(new Error('timeout')), 7000), ok = () => { clearTimeout(to); res(); };
+        v.onloadeddata = ok; v.oncanplay = ok; v.onerror = () => { clearTimeout(to); rej(new Error('video')); };
+        v.load(); const p = v.play(); if (p && p.catch) p.catch(() => {});
+      });
+      v.pause();
+      await new Promise(res => { const to = setTimeout(res, 1500); v.onseeked = () => { clearTimeout(to); res(); }; try { v.currentTime = Math.min(0.3, (v.duration || 1) / 2); } catch (e) { clearTimeout(to); res(); } });
+      src = v; w = v.videoWidth; h = v.videoHeight;
+    } else { src = await createImageBitmap(file); w = src.width; h = src.height; }
+    if (!w || !h) return null;
+    const k = Math.min(1, 400 / Math.min(w, h)), cv = document.createElement('canvas');
+    cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+    cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
+    return await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.72));
+  } catch (e) { return null; }
+  finally { if (url) URL.revokeObjectURL(url); }
 }
 const extOf = b => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm' }[b.type] || 'bin');
 
@@ -876,12 +935,15 @@ async function submitProof() {
   const media = [], todo = pf.media.filter(m => m.file).length; let k = 0;
   try {
     for (const m of pf.media) {
-      if (m.p) { media.push({ p: m.p, t: m.t }); continue; }
+      if (m.p) { const keep = { p: m.p, t: m.t }; if (m.th) keep.th = m.th; if (m.s) keep.s = m.s; media.push(keep); continue; }
       btn.textContent = `올리는 중 ${++k} / ${todo}`;
-      const blob = await shrink(m.file);
-      const path = `${id}/${Date.now().toString(36)}-${uid('')}.${extOf(blob)}`;
+      const blob = await shrink(m.file), stem = `${id}/${Date.now().toString(36)}-${uid('')}`;
+      const path = `${stem}.${extOf(blob)}`;
       await adapter.upload(path, blob);
-      media.push({ p: path, t: m.t });
+      const item = { p: path, t: m.t, s: blob.size };
+      const th = await makeThumb(m.file, m.t === 'video');
+      if (th) { try { await adapter.upload(`${stem}-t.jpg`, th); item.th = `${stem}-t.jpg`; item.s += th.size; } catch (e) {} }
+      media.push(item);
     }
   } catch (e) {
     console.error(e); pf.busy = false; sheetLock = false; btn.disabled = false; btn.textContent = c.done ? '수정 저장' : '완등 인증하기';
@@ -889,7 +951,7 @@ async function submitProof() {
   }
   const was = c.done, before = doneCount(t);
   const saved = await put('cells', id, Object.assign({}, c, { done: true, title, desc, by: [...pf.by], media, doneAt: c.doneAt || Date.now(), doneBy: c.doneBy || meId }));
-  (c.media || []).filter(o => !media.some(n => n.p === o.p)).forEach(o => adapter.removeMedia(o.p).catch(() => {}));
+  (c.media || []).filter(o => !media.some(n => n.p === o.p)).forEach(rmFiles);
   pf = null; closeSheet();
   if (!saved) return;
   const after = doneCount(t);
@@ -1010,7 +1072,8 @@ function armed(btn, label) {
   setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = btn.dataset.orig; btn.classList.remove('armed'); } }, 3500);
   return false;
 }
-function dropMedia(c) { (c && c.media || []).forEach(m => adapter.removeMedia(m.p).catch(() => {})); }
+function rmFiles(m) { [m.p, m.th].filter(Boolean).forEach(p => adapter.removeMedia(p).catch(() => {})); }
+function dropMedia(c) { (c && c.media || []).forEach(rmFiles); }
 
 /* ── 이벤트 ───────────────────────── */
 document.addEventListener('click', async e => {
