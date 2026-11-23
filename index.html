@@ -420,6 +420,8 @@ const QUOTA = { photo: 1, problem: 18, duel: 6 }, PER_PERSON = 3;
 const KIND = { photo: '인증샷', problem: '문제', duel: '팀 대결' };
 /* 문제는 섹터 → 난이도(테이프 색) → 홀드 색으로 고른다. 목록 자체는 운영진 페이지에서 등록한다. */
 const SECTORS = ['1섹터', '2~3섹터', '4~5섹터', 'Island 섹터'], SECTOR_SHORT = ['1', '2·3', '4·5', 'IS'];
+/* 이번 행사에서 쓰는 섹터만 고를 수 있다. 저장된 문제의 섹터 번호가 SECTORS 순서를 가리키므로 위 목록 자체는 줄이지 않는다. */
+const SECTOR_ON = [1, 2];
 const LEVELS = [['빨강', '#E5372E'], ['주황', '#F5821F'], ['노랑', '#F7CB15'], ['초록', '#2E9E4F'], ['파랑', '#2D6BE0'], ['남색', '#27357E'], ['보라', '#8747D1'], ['회색', '#9AA0A8'], ['검정', '#1B1D22']];
 const HOLDS = [['빨강', '#E5372E'], ['주황', '#F5821F'], ['노랑', '#F7CB15'], ['초록', '#2E9E4F'], ['파랑', '#2D6BE0'], ['남색', '#27357E'], ['보라', '#8747D1'], ['분홍', '#EE6FA8'], ['하늘', '#6CC4F0'], ['흰색', '#FFFFFF'], ['회색', '#9AA0A8'], ['검정', '#1B1D22'], ['갈색', '#8A5A33']];
 /* 빙고 줄: 가로 5, 세로 5, 대각선 2 */
@@ -868,7 +870,8 @@ function adminView() {
     h += `<div class="bar"><p><b>문제 ${all.length}개</b></p><div><button class="btn sm" data-act="pr-edit">문제 추가</button></div></div>
       <p class="hint">암장에 있는 문제를 등록해 두면 조원들이 섹터 → 난이도 → 홀드 색 순서로 골라서 올려요. 여기에 없는 문제는 올릴 수 없어요.</p>`;
     if (!all.length) h += `<p class="warn">등록된 문제가 없어서 조원들이 문제 칸을 채울 수 없어요.</p>`;
-    SECTORS.forEach((name, s) => {
+    SECTOR_ON.forEach(s => {
+      const name = SECTORS[s];
       const list = all.filter(p => p.sector === s);
       h += `<div class="group"><div class="group-h"><b>${name}</b><span>${list.length}개</span></div>` +
         (list.length ? list.map(p => `<button class="prow" data-act="pr-edit" data-id="${p.id}"><b>${swatch(p)}${lv(p.level)[0]} · ${hd(p.hold)[0]} 홀드${p.note ? `<small>${esc(p.note)}</small>` : ''}</b><span>${usedBy[p.id] ? usedBy[p.id] + '개 조가 올림' : '수정'}</span></button>`).join('') : '<p class="empty">아직 문제가 없어요</p>') + `</div>`;
@@ -988,10 +991,10 @@ let prf = null;
 function openProblem(id, keep) {
   const p = id ? S.problems[id] : null;
   prf = { id: id || '', sector: p ? p.sector : keep ? keep.sector : null, level: p ? p.level : null, hold: p ? p.hold : null };
-  const pick = (f, list, label) => list.map((x, k) => `<button type="button" class="${f === 'sector' ? '' : 'chip'}" data-act="prf" data-f="${f}" data-v="${k}" aria-pressed="${prf[f] === k}">${f === 'sector' ? x : dot(x[1]) + x[0]}</button>`).join('');
+  const pick = (f, list) => list.map((x, k) => `<button type="button" class="chip" data-act="prf" data-f="${f}" data-v="${k}" aria-pressed="${prf[f] === k}">${dot(x[1]) + x[0]}</button>`).join('');
   openSheet(`<form id="problem-form" data-id="${id || ''}" novalidate>
     <h2>${p ? '문제 수정' : '문제 추가'}</h2>
-    <div class="field"><span class="label">섹터</span><div class="seg two">${pick('sector', SECTORS)}</div></div>
+    <div class="field"><span class="label">섹터</span><div class="seg two">${SECTOR_ON.map(k => `<button type="button" data-act="prf" data-f="sector" data-v="${k}" aria-pressed="${prf.sector === k}">${SECTORS[k]}</button>`).join('')}</div></div>
     <div class="field"><span class="label">난이도<small>테이프 색</small></span><div class="chips">${pick('level', LEVELS)}</div></div>
     <div class="field"><span class="label">홀드 색</span><div class="chips">${pick('hold', HOLDS)}</div></div>
     <div class="field"><label for="prf-note">메모 (선택)</label><input class="inp" id="prf-note" maxlength="20" placeholder="같은 색 문제가 둘일 때 구분용. 예: 왼쪽" value="${esc(p && p.note || '')}"></div>
@@ -1047,7 +1050,7 @@ function drawProblemPick() {
   if (!problemList().length) { box.innerHTML = '<p class="hint">아직 등록된 문제가 없어요. 운영진에게 말해주세요.</p>'; return; }
   const used = new Set(teamCells(pf.t).filter(c => c && c.kind === 'problem' && c.idx !== pf.i).map(probKey));
   const all = problemList().filter(p => !used.has(p.id)), inS = all.filter(p => p.sector === pf.sector), inL = inS.filter(p => p.level === pf.level);
-  let h = `<div class="seg two">${SECTORS.map((s, k) => `<button type="button" data-act="pf-sector" data-v="${k}" aria-pressed="${pf.sector === k}"${all.some(p => p.sector === k) ? '' : ' disabled'}>${s}</button>`).join('')}</div>`;
+  let h = `<div class="seg two">${SECTOR_ON.map(k => `<button type="button" data-act="pf-sector" data-v="${k}" aria-pressed="${pf.sector === k}"${all.some(p => p.sector === k) ? '' : ' disabled'}>${SECTORS[k]}</button>`).join('')}</div>`;
   if (pf.sector != null) {
     const lvs = [...new Set(inS.map(p => p.level))].sort((a, b) => a - b);
     h += `<span class="label sub">난이도<small>테이프 색</small></span><div class="chips">${lvs.length ? lvs.map(k => `<button type="button" class="chip" data-act="pf-level" data-v="${k}" aria-pressed="${pf.level === k}">${dot(lv(k)[1])}${lv(k)[0]}</button>`).join('') : '<p class="hint">이 섹터에 남은 문제가 없어요.</p>'}</div>`;
