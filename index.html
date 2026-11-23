@@ -355,6 +355,9 @@ const CONFIG = {
 const PASSWORD = '0000';
 const TEAMS = 7, CELLS = 16, MILESTONES = [10, 16];
 const MAX_MEDIA = 4, MAX_VIDEO_MB = 50;
+/* 영상은 올리기 직전에 폰에서 짧은 변 720px · H.264 mp4로 다시 인코딩한다. */
+const VIDEO_SHORT = 720, VIDEO_BPS = 2e6;
+const MEDIABUNNY = 'https://cdn.jsdelivr.net/npm/mediabunny@1.65.2/dist/bundles/mediabunny.min.mjs';
 /* 올라온 파일 합계가 이 값을 넘으면 영상 업로드를 막는다 (Supabase 무료 저장 1GB 기준). 유료로 올리면 키우면 된다. */
 const STORAGE_BUDGET_MB = 900;
 const EVENT = { date: '11.28 토', place: '피커스 종로점' };
@@ -850,7 +853,7 @@ function openProof(t, i) {
   const members = teamMembers(t);
   openSheet(`<form id="proof-form" class="tc${t}" novalidate>
     <h2>${c.done ? '인증 내용 수정' : '완등 인증'}</h2><p class="sheet-sub">No.${c.no} ${esc(c.mTitle)}</p>
-    <div class="field"><span class="label">사진 · 영상</span><div class="mgrid" id="pf-media"></div><p class="hint">최대 ${MAX_MEDIA}개 · 영상은 한 개에 ${MAX_VIDEO_MB}MB까지</p></div>
+    <div class="field"><span class="label">사진 · 영상</span><div class="mgrid" id="pf-media"></div><p class="hint">최대 ${MAX_MEDIA}개 · 영상은 720p로 줄여서 올라가요</p></div>
     <div class="field"><label for="pf-title">제목</label><input class="inp" id="pf-title" maxlength="40" placeholder="예: 세 번 만에 잡은 다이노" value="${esc(c.title || '')}"></div>
     <div class="field"><label for="pf-desc">설명</label><textarea class="inp" id="pf-desc" rows="3" maxlength="300" placeholder="어떻게 깼는지 한마디">${esc(c.desc || '')}</textarea></div>
     <div class="field"><span class="label">누가 깼나요?<small>여러 명을 고를 수 있어요</small></span>
@@ -874,9 +877,8 @@ function addProofFiles(files) {
     if (pf.media.length >= MAX_MEDIA) { showErr(err, `사진·영상은 ${MAX_MEDIA}개까지 올릴 수 있어요.`); break; }
     const isV = f.type.startsWith('video/'), isI = f.type.startsWith('image/');
     if (!isV && !isI) { showErr(err, '사진이나 영상 파일만 올릴 수 있어요.'); continue; }
-    const queued = pf.media.reduce((a, m) => a + (m.file ? m.file.size : 0), 0);
-    if (isV && usedBytes() + queued + f.size > STORAGE_BUDGET_MB * 1048576) { showErr(err, '영상 저장 공간이 거의 찼어요. 이 미션은 사진으로 인증해주세요.'); continue; }
-    if (isV && f.size > MAX_VIDEO_MB * 1048576) { showErr(err, `영상은 ${MAX_VIDEO_MB}MB까지 올릴 수 있어요. 더 짧게 찍거나 화질을 낮춰주세요.`); continue; }
+    /* 영상 크기는 720p로 바꾼 뒤에 잰다 (submitProof). 여기서는 자리가 아예 없을 때만 막는다. */
+    if (isV && usedBytes() >= STORAGE_BUDGET_MB * 1048576) { showErr(err, '영상 저장 공간이 거의 찼어요. 이 미션은 사진으로 인증해주세요.'); continue; }
     pf.media.push({ file: f, t: isV ? 'video' : 'image', url: URL.createObjectURL(f) + (isV ? '#t=0.1' : '') });
   }
   drawProofMedia();
@@ -892,6 +894,45 @@ async function shrink(file) {
     const b = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.82));
     return b && b.size < file.size ? b : file;
   } catch (e) { return file; }
+}
+let mbLib = null;
+function loadMb() { return mbLib || (mbLib = import(MEDIABUNNY).catch(e => { mbLib = null; throw e; })); }
+/* 영상을 짧은 변 720px · H.264 mp4로 바꾼다. 소리는 그대로 옮긴다. 이 기기에서 못 바꾸면 에러를 던진다. */
+async function to720(file, onProgress) {
+  const MB = await loadMb();
+  const input = new MB.Input({ formats: MB.ALL_FORMATS, source: new MB.BlobSource(file) });
+  const vt = await input.getPrimaryVideoTrack();
+  if (!vt) throw new Error('no video track');
+  const w = await vt.getDisplayWidth(), h = await vt.getDisplayHeight(), dur = await input.computeDuration();
+  /* 이미 충분히 작은 mp4는 다시 인코딩하지 않는다 (화질만 깎이므로). */
+  if (file.type === 'video/mp4' && (await vt.getCodec()) === 'avc' && Math.min(w, h) <= VIDEO_SHORT && dur > 0 && file.size * 8 / dur <= VIDEO_BPS * 1.25) return file;
+  const k = Math.min(1, VIDEO_SHORT / Math.min(w, h)), even = n => Math.max(2, Math.round(n * k / 2) * 2);
+  let fps = 0, at = null;
+  try { fps = (await vt.computePacketStats(60)).averagePacketRate; } catch (e) {}
+  /* 소리는 한 줄만, 되도록 AAC인 것을 고른다 (어느 폰에서나 재생되도록). */
+  const ats = await input.getAudioTracks();
+  for (const t of ats) { if ((await t.getCodec()) === 'aac') { at = t; break; } }
+  at = at || ats[0] || null;
+  const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new MB.BufferTarget() });
+  const conv = await MB.Conversion.init({
+    input, output,
+    video: tr => {
+      if (tr.id !== vt.id) return { discard: true };
+      const o = { codec: 'avc', width: even(w), height: even(h), fit: 'fill', quality: new MB.Quality({ bitrate: VIDEO_BPS }), forceTranscode: true };
+      if (fps > 33) o.frameRate = 30;
+      return o;
+    },
+    audio: tr => (at && tr.id === at.id ? { codec: 'aac' } : { discard: true })
+  });
+  if (!conv.isValid || !conv.utilizedTracks.some(t => t.type === 'video')) throw new Error('cannot convert on this device');
+  /* 25초 동안 진행이 없으면 멈춘 것으로 보고 그만둔다. */
+  let last = Date.now();
+  conv.onProgress = p => { last = Date.now(); if (onProgress) onProgress(p); };
+  const dog = setInterval(() => { if (Date.now() - last > 25000) conv.cancel().catch(() => {}); }, 2000);
+  try { await conv.execute(); } finally { clearInterval(dog); }
+  const buf = output.target.buffer;
+  if (!buf || !buf.byteLength) throw new Error('empty output');
+  return new Blob([buf], { type: 'video/mp4' });
 }
 /* 빙고판에는 작은 미리보기 그림만 보여 준다. 영상은 눌러서 재생할 때만 내려받는다. */
 async function makeThumb(file, isVideo) {
@@ -932,22 +973,41 @@ async function submitProof() {
   if (!title) return showErr(err, '제목을 적어주세요.');
   if (!pf.by.size && teamMembers(t).length) return showErr(err, '누가 깼는지 한 명 이상 골라주세요.');
   pf.busy = true; sheetLock = true; btn.disabled = true;
-  const media = [], todo = pf.media.filter(m => m.file).length; let k = 0;
+  const stop = msg => { pf.busy = false; sheetLock = false; btn.disabled = false; btn.textContent = c.done ? '수정 저장' : '완등 인증하기'; showErr(err, msg); };
+  /* 1) 올리기 전에 사진은 줄이고 영상은 720p로 바꾼다. 다시 눌렀을 때 또 바꾸지 않게 결과를 붙여 둔다. */
+  const fresh = pf.media.filter(m => m.file);
+  let nv = 0, add = 0;
+  const videos = fresh.filter(m => m.t === 'video').length;
+  for (const m of fresh) {
+    if (m.t !== 'video') { if (!m.blob) m.blob = await shrink(m.file); continue; }
+    nv++;
+    if (!m.blob) {
+      const tag = videos > 1 ? `영상 줄이는 중 ${nv}/${videos}` : '영상 줄이는 중';
+      btn.textContent = tag + '…';
+      try { m.blob = await to720(m.file, p => { btn.textContent = `${tag} ${Math.round(p * 100)}%`; }); }
+      catch (e) { console.warn('to720', e); m.blob = m.file; m.raw = true; }
+    }
+    if (m.blob.size > MAX_VIDEO_MB * 1048576) return stop(m.raw ? '이 폰에서는 영상을 줄이지 못했고 원본은 너무 커요. 더 짧게 찍어서 다시 올려주세요.' : '영상이 너무 길어요. 더 짧은 영상으로 올려주세요.');
+    add += m.blob.size;
+  }
+  if (add && usedBytes() + add > STORAGE_BUDGET_MB * 1048576) return stop('영상 저장 공간이 거의 찼어요. 이 미션은 사진으로 인증해주세요.');
+  /* 2) 올리기 */
+  const media = []; let k = 0;
   try {
     for (const m of pf.media) {
       if (m.p) { const keep = { p: m.p, t: m.t }; if (m.th) keep.th = m.th; if (m.s) keep.s = m.s; media.push(keep); continue; }
-      btn.textContent = `올리는 중 ${++k} / ${todo}`;
-      const blob = await shrink(m.file), stem = `${id}/${Date.now().toString(36)}-${uid('')}`;
+      btn.textContent = `올리는 중 ${++k} / ${fresh.length}`;
+      const blob = m.blob, stem = `${id}/${Date.now().toString(36)}-${uid('')}`;
       const path = `${stem}.${extOf(blob)}`;
       await adapter.upload(path, blob);
       const item = { p: path, t: m.t, s: blob.size };
-      const th = await makeThumb(m.file, m.t === 'video');
+      const th = await makeThumb(m.t === 'video' ? blob : m.file, m.t === 'video');
       if (th) { try { await adapter.upload(`${stem}-t.jpg`, th); item.th = `${stem}-t.jpg`; item.s += th.size; } catch (e) {} }
       media.push(item);
     }
   } catch (e) {
-    console.error(e); pf.busy = false; sheetLock = false; btn.disabled = false; btn.textContent = c.done ? '수정 저장' : '완등 인증하기';
-    return showErr(err, '파일을 올리지 못했어요. 연결 상태를 확인하고 다시 눌러주세요.');
+    console.error(e);
+    return stop('파일을 올리지 못했어요. 연결 상태를 확인하고 다시 눌러주세요.');
   }
   const was = c.done, before = doneCount(t);
   const saved = await put('cells', id, Object.assign({}, c, { done: true, title, desc, by: [...pf.by], media, doneAt: c.doneAt || Date.now(), doneBy: c.doneBy || meId }));
