@@ -159,10 +159,9 @@ textarea.inp{resize:vertical;line-height:1.5}
 .trow-m b{font-size:15px;font-weight:700}
 .trow-m b em{font-style:normal;font-weight:600;font-size:11.5px;background:var(--ink);color:#fff;border-radius:99px;padding:2px 8px;margin-left:6px;vertical-align:1px}
 .trow-m p{font-size:12.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mini{display:grid;grid-template-columns:repeat(4,7px);gap:2.5px}
-.mini i{width:7px;height:7px;border-radius:2px;background:var(--line)}
+.mini{display:grid;grid-template-columns:repeat(5,6px);gap:2px}
+.mini i{width:6px;height:6px;border-radius:1.5px;background:var(--line)}
 .mini i.d{background:var(--c)}
-.mini i.a{background:transparent;box-shadow:inset 0 0 0 1.5px var(--c)}
 
 /* ── 조 페이지 ─────────────────────────── */
 .teamhead{display:flex;align-items:flex-end;gap:14px}
@@ -174,37 +173,37 @@ textarea.inp{resize:vertical;line-height:1.5}
 .prog-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .prog-n{font-weight:600}
 .prog-n b{font-family:var(--display);font-weight:400;font-size:30px;line-height:1}
-.track{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;align-items:center}
-.track i{height:10px;border-radius:3px;background:var(--line)}
-.track i.g{height:18px;border-radius:4px}
-.track i.d{background:var(--c)}
-.goals{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.goals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .goal{display:flex;flex-direction:column;gap:1px;padding:9px 12px 10px;border-radius:10px;background:var(--panel);font-size:12.5px;color:var(--ink-2)}
 .goal b{font-size:14px;color:var(--ink)}
 .goal.on{background:var(--c);color:var(--cf)}
 .goal.on b{color:var(--cf)}
+.tally{display:flex;flex-wrap:wrap;gap:6px}
+.tally span{font-size:12.5px;line-height:1.3;background:var(--panel);color:var(--ink-2);border-radius:99px;padding:4px 10px}
+.tally b{color:var(--ink);font-weight:700}
+.tally .full{background:var(--c);color:var(--cf)}
+.tally .full b{color:inherit}
 
 .board{
-  position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;
+  position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:14px;
   background:var(--panel);border-radius:10px;box-shadow:0 1px 0 #fff inset,0 18px 34px -22px rgba(23,26,33,.5);
 }
 .bolt{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--ink-3);box-shadow:inset 0 1px 0 rgba(0,0,0,.4)}
 .bolt:nth-of-type(1){top:5px;left:5px}.bolt:nth-of-type(2){top:5px;right:5px}
 .bolt:nth-of-type(3){bottom:5px;left:5px}.bolt:nth-of-type(4){bottom:5px;right:5px}
-.cell{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;display:grid;place-items:center;min-width:0}
-.cell.locked{background:var(--wall)}
-.cell.locked .hold{width:58%;height:52%;--c:#C3C9D2;--cf:var(--ink-2)}
-.cell.locked .hold b{position:absolute;top:-34%;left:-30%;font-size:11px;font-weight:600;color:var(--ink-3)}
-.cell.openable .hold{--c:var(--tc)}
-.cell.openable{box-shadow:inset 0 0 0 1.5px var(--tc)}
+.cell{position:relative;aspect-ratio:1;border-radius:7px;overflow:hidden;display:grid;place-items:center;min-width:0}
 .board{--tc:var(--c)}
-.cell.active{background:var(--c);color:var(--cf);padding:7px;align-content:space-between;place-items:start;text-align:left}
-.cell.active .st{font-size:10px;font-weight:700;letter-spacing:.03em;background:var(--ink);color:#fff;border-radius:4px;padding:1px 5px}
-.cell.active .ct{font-size:11.5px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
+.cell.empty{background:var(--wall)}
+.cell.empty .hold{width:54%;height:48%;--c:#C3C9D2}
+.cell.empty.can{box-shadow:inset 0 0 0 1.5px var(--line)}
+.cell.empty.mid{box-shadow:inset 0 0 0 2px var(--tc);background:#fff}
+.cell .ek{font-size:10.5px;font-weight:700;line-height:1.25;text-align:center;color:var(--ink)}
 .cell.done{background:var(--c);color:var(--cf)}
 .cell.done img,.cell.done video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.cell.done .ct{align-self:start;margin-top:8px;padding:0 6px;font-size:11px;font-weight:700;text-align:center;line-height:1.3;max-height:2.6em;overflow:hidden;word-break:keep-all}
-.cell.done .tape{position:absolute;left:-2px;bottom:6px;font-size:11px;padding:1px 9px 2px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.cell.done .ct{padding:0 4px;font-size:10px;font-weight:700;text-align:center;line-height:1.25;max-height:3.75em;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
+.cell .kb{position:absolute;left:0;bottom:0;font-size:9.5px;font-weight:700;line-height:1.3;padding:1px 5px 2px;background:var(--ink);color:#fff;border-radius:0 5px 0 0}
+/* 빙고가 된 줄의 칸에는 테두리를 두른다 */
+.cell.line::after{content:"";position:absolute;inset:0;border:3px solid var(--ink);border-radius:inherit;pointer-events:none}
 .cell.pop{animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
 @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
 .cta{display:flex;flex-direction:column;gap:8px}
@@ -258,14 +257,18 @@ textarea.inp{resize:vertical;line-height:1.5}
 .meter i{display:block;height:100%;background:var(--ink);border-radius:99px}
 .vbadge{position:absolute;left:5px;bottom:5px;font-size:10px;font-weight:700;background:rgba(23,26,33,.8);color:#fff;border-radius:4px;padding:1px 5px}
 
-/* ── 룰렛 ─────────────────────────── */
-.wheelwrap{position:relative;width:min(300px,78vw);aspect-ratio:1;margin:6px auto 0}
-.wheelwrap canvas{width:100%;height:100%;border-radius:50%;box-shadow:0 0 0 5px var(--ink),0 16px 30px -12px rgba(23,26,33,.6)}
-.pointer{position:absolute;left:50%;top:-14px;transform:translateX(-50%);width:0;height:0;border:13px solid transparent;border-top:24px solid var(--ink);z-index:2;filter:drop-shadow(0 2px 0 #fff)}
-.result{display:flex;flex-direction:column;gap:8px;align-items:flex-start;background:var(--c);color:var(--cf);border-radius:16px;padding:18px;animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
-.result .no{font-family:var(--display);font-size:15px;opacity:.85}
-.result h3{font-size:22px;line-height:1.3;word-break:keep-all}
-.result p{font-size:14.5px;white-space:pre-wrap;word-break:keep-all}
+/* ── 칸 채우기 ─────────────────────────── */
+.pickrow{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:15px 16px;border-radius:14px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--line);text-align:left}
+.pickrow b{font-size:16px}
+.pickrow span{font-size:13px;color:var(--ink-2);word-break:keep-all}
+.pickrow:active{box-shadow:inset 0 0 0 2px var(--ink)}
+.pickrow[disabled]{opacity:.45;pointer-events:none}
+.seg.six{grid-template-columns:repeat(6,1fr)}
+.chip small{font-weight:600;font-size:11.5px;opacity:.65;margin-left:5px}
+.chip[disabled]{opacity:.4;pointer-events:none}
+button.qrow[aria-pressed="true"]{box-shadow:inset 4px 0 0 var(--c);background:var(--wall)}
+button.qrow[aria-pressed="true"] em::before{content:"선택";color:var(--ink)}
+.kicker{font-size:13px;font-weight:700;color:var(--ink-2)}
 
 /* ── 미션 사진 ─────────────────────────── */
 .mpic{display:block;position:relative;width:100%;padding:0;border-radius:12px;overflow:hidden;background:#000;align-self:stretch}
@@ -368,7 +371,18 @@ const CONFIG = {
 };
 
 const PASSWORD = '0000';
-const TEAMS = 7, CELLS = 16, MILESTONES = [10, 16];
+const TEAMS = 7, N = 5, CELLS = N * N, CENTER = 12;
+/* 가운데 한 칸은 팀 인증샷, 나머지 24칸은 문제 18칸 + 팀 대결 6칸. 어느 칸을 무엇으로 채울지는 조가 정한다. */
+const QUOTA = { photo: 1, problem: 18, duel: 6 }, PER_PERSON = 3;
+const KIND = { photo: '인증샷', problem: '문제', duel: '팀 대결' };
+/* 빙고 줄: 가로 5, 세로 5, 대각선 2 */
+const LINES = (() => {
+  const L = [], ix = [0, 1, 2, 3, 4];
+  ix.forEach(r => L.push(ix.map(c => r * N + c)));
+  ix.forEach(c => L.push(ix.map(r => r * N + c)));
+  L.push(ix.map(k => k * N + k), ix.map(k => k * N + (N - 1 - k)));
+  return L;
+})();
 const MAX_MEDIA = 4, MAX_VIDEO_MB = 50;
 /* 영상은 올리기 직전에 폰에서 짧은 변 720px · H.264 mp4로 다시 인코딩한다. */
 const VIDEO_SHORT = 720, VIDEO_BPS = 2e6;
@@ -378,30 +392,6 @@ const STORAGE_BUDGET_MB = 900;
 const EVENT = { date: '11.28 토', place: '피커스 종로점' };
 const COLORS = [null, ['#FFC533','#171A21'], ['#FF7F32','#171A21'], ['#108A5C','#fff'], ['#2D5BE3','#fff'], ['#E23B3B','#fff'], ['#7A4FD8','#fff'], ['#DB3A82','#fff']];
 const FIRST_ADMIN = '김준형';
-
-/* 처음 한 번만 들어가는 기본 미션. 이후에는 운영진 페이지에서 고칩니다. */
-const STARTER_MISSIONS = [
-  ['조원 전원 같은 문제 완등', '난이도는 상관없어요. 한 문제를 조원 모두가 완등하면 성공.'],
-  ['다이노 성공', '두 발이 모두 떨어지는 점프로 다음 홀드를 잡는 장면을 영상으로 남겨주세요.'],
-  ['노핸드 슬랩', '슬랩 벽에서 손을 쓰지 않고 세 걸음 이상 올라가기.'],
-  ['한 손 완등', '한 손만 써서 가장 쉬운 문제 하나를 완등.'],
-  ['오늘의 최고 난이도', '조원 중 한 명이 오늘 자기 최고 난이도 문제를 완등.'],
-  ['플래시', '처음 보는 문제를 첫 시도에 완등. 시도 전 장면부터 찍어주세요.'],
-  ['탑 홀드 단체 포즈', '한 명은 탑 홀드에서, 나머지는 매트에서 같은 포즈로 사진 한 장.'],
-  ['같은 색 세 문제', '같은 색 테이프 문제 세 개를 조원이 나눠서 완등.'],
-  ['다른 조와 하이파이브', '서로 다른 조 세 명과 초크 묻은 손으로 하이파이브.'],
-  ['사일런트 풋', '발 디디는 소리 없이 한 문제 완등. 소리가 들리게 영상으로.'],
-  ['베타 따라 하기', '한 명이 정한 무브 그대로 두 명 이상이 따라서 완등.'],
-  ['릴레이 완등', '조원 세 명이 같은 문제를 연달아 완등. 중간에 떨어지면 처음부터.'],
-  ['훅 넣기', '힐훅이나 토훅이 들어간 완등 영상.'],
-  ['오버행 도전', '오버행 벽 문제 하나 완등.'],
-  ['다운클라임', '완등한 뒤 뛰어내리지 않고 홀드를 잡고 끝까지 내려오기.'],
-  ['응원 영상', '한 명이 오르는 동안 나머지 조원의 응원 소리를 담은 영상.'],
-  ['30초 매달리기', '조원 두 명이 동시에 30초 동안 매달리기.'],
-  ['다른 조와 맞대결', '다른 조 한 명과 같은 문제에 도전해서 먼저 완등하기.'],
-  ['스타트 자세 콘테스트', '가장 웃긴 스타트 자세 사진 한 장.'],
-  ['조 구호 외치기', '조 구호를 정해서 다 같이 외치는 영상.']
-];
 
 /* ── 저장소 어댑터 ───────────────────────── */
 function localAdapter() {
@@ -461,7 +451,7 @@ function supabaseAdapter(cfg) {
 const S = { members: {}, missions: {}, cells: {}, settings: {} };
 const app = document.getElementById('app'), sheetEl = document.getElementById('sheet'), fxEl = document.getElementById('fx'), toastEl = document.getElementById('toast');
 let adapter, ready = false, failed = false, epoch = 0;
-let meId = null, adminTab = 'people', holdCell = null, popCell = null, sheetLock = false;
+let meId = null, adminTab = 'people', popCell = null, sheetLock = false;
 const urlCache = {};
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -480,18 +470,24 @@ function toast(msg) {
 const memberList = () => Object.keys(S.members).map(id => Object.assign({ id }, S.members[id])).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 const teamMembers = t => memberList().filter(m => m.team === t);
 const missionList = () => Object.keys(S.missions).map(id => Object.assign({ id }, S.missions[id])).sort((a, b) => a.no - b.no);
+/* 채워진 칸만 돌려준다. 예전 방식(룰렛)으로 만들어진 칸은 kind 가 없어서 빠진다. */
 function teamCells(t) {
   const a = Array(CELLS).fill(null);
-  Object.keys(S.cells).forEach(k => { const c = S.cells[k]; if (c.team === t && c.idx >= 0 && c.idx < CELLS && k !== holdCell) a[c.idx] = c; });
+  Object.values(S.cells).forEach(c => { if (c.team === t && KIND[c.kind] && c.done && c.idx >= 0 && c.idx < CELLS) a[c.idx] = c; });
   return a;
 }
-const doneCount = t => teamCells(t).filter(c => c && c.done).length;
-const activeCell = t => teamCells(t).find(c => c && !c.done) || null;
-const earned = n => MILESTONES.filter(x => n >= x).length;
-function pool(t) {
-  const used = new Set(Object.values(S.cells).filter(c => c.team === t).map(c => c.missionId));
-  return missionList().filter(m => m.active !== false && !used.has(m.id));
+const doneCount = t => teamCells(t).filter(Boolean).length;
+const kindCount = (cells, k, skip) => cells.filter(c => c && c.kind === k && c.idx !== skip).length;
+const wonLines = cells => LINES.filter(L => L.every(i => cells[i]));
+const setting = k => !S.settings.main || S.settings.main[k] !== false;
+/* 조원별로 채운 문제 수 */
+function solvedBy(cells, skip) {
+  const n = {};
+  cells.forEach(c => { if (c && c.kind === 'problem' && c.idx !== skip) (c.by || []).forEach(id => { n[id] = (n[id] || 0) + 1; }); });
+  return n;
 }
+/* 이 조가 이미 쓴 대결 미션 */
+const duelUsed = (cells, skip) => new Set(cells.filter(c => c && c.kind === 'duel' && c.idx !== skip).map(c => c.missionId));
 
 async function resync(force) {
   const at = epoch;
@@ -514,13 +510,8 @@ async function del(col, id) {
 
 async function seedIfEmpty() {
   if (S.settings.main) return;
-  await put('settings', 'main', { requireMedia: true, seededAt: Date.now() }, true);
+  await put('settings', 'main', { requireMedia: true, perPerson: true, seededAt: Date.now() }, true);
   if (!Object.keys(S.members).length) await put('members', 'm-first', { name: FIRST_ADMIN, team: 0, admin: true }, true);
-  if (!Object.keys(S.missions).length) {
-    for (let i = 0; i < STARTER_MISSIONS.length; i++) {
-      await put('missions', 'q-' + String(i + 1).padStart(2, '0'), { no: i + 1, title: STARTER_MISSIONS[i][0], desc: STARTER_MISSIONS[i][1], active: true }, true);
-    }
-  }
 }
 
 function loadScript(src) {
@@ -613,45 +604,40 @@ function topbar() {
 }
 
 function mini(t) {
-  return `<span class="mini" aria-hidden="true">${teamCells(t).map(c => `<i class="${c ? (c.done ? 'd' : 'a') : ''}"></i>`).join('')}</span>`;
-}
-function nextGoalText(n) {
-  const g = MILESTONES.find(x => n < x);
-  return g ? `추첨권까지 ${g - n}칸` : '추첨권 2장 모두 확보';
+  return `<span class="mini" aria-hidden="true">${teamCells(t).map(c => `<i class="${c ? 'd' : ''}"></i>`).join('')}</span>`;
 }
 
-/* 완등 수가 많은 순. 같으면 그 수에 먼저 도달한 조가 앞. 아직 0칸이면 순위 없음. */
+/* 빙고 줄이 많은 순. 같으면 채운 칸이 많은 순, 그것도 같으면 먼저 채운 조가 앞. 아직 0칸이면 순위 없음. */
 function ranking() {
   const rows = [];
   for (let t = 1; t <= TEAMS; t++) {
-    const cs = teamCells(t).filter(c => c && c.done);
-    rows.push({ t, n: cs.length, last: cs.reduce((a, c) => Math.max(a, c.doneAt || 0), 0) });
+    const cs = teamCells(t), f = cs.filter(Boolean);
+    rows.push({ t, lines: wonLines(cs).length, n: f.length, last: f.reduce((a, c) => Math.max(a, c.doneAt || 0), 0) });
   }
-  rows.sort((a, b) => b.n - a.n || a.last - b.last || a.t - b.t);
+  rows.sort((a, b) => b.lines - a.lines || b.n - a.n || a.last - b.last || a.t - b.t);
   rows.forEach((r, i) => { r.rank = r.n ? i + 1 : 0; });
   return rows;
 }
 
 function homeView() {
   const m = meObj(), rank = ranking(), mine = rank.find(r => r.t === m.team); let h = topbar();
-  if (m.team) {
-    const n = doneCount(m.team);
+  if (mine) {
     h += `<a class="hero tc${m.team}" href="#team-${m.team}">
       <span class="hold h2" style="width:120px;height:104px;right:-28px;top:-30px"></span>
       <span class="hold h5" style="width:54px;height:48px;right:78px;top:22px"></span>
       <span class="hero-k">우리 조</span>
       <span class="hero-n">${m.team}<small>조</small></span>
-      <span class="hero-r"><span class="hero-p"><b>${n}</b> / ${CELLS} 완등</span><span class="hero-s">${mine && mine.rank ? '현재 ' + mine.rank + '위 · ' : ''}${nextGoalText(n)}</span></span>
+      <span class="hero-r"><span class="hero-p"><b>${mine.lines}</b>줄 빙고</span><span class="hero-s">${mine.rank ? '현재 ' + mine.rank + '위 · ' : ''}${mine.n} / ${CELLS}칸</span></span>
       <span class="hero-go">우리 조 빙고판 열기</span></a>`;
   } else {
     h += `<div class="note">${m.admin ? '운영진 계정이에요. 조 배정 없이 모든 조의 빙고판을 관리할 수 있어요.' : '아직 조가 정해지지 않았어요. 운영진에게 말해주세요.'}</div>`;
   }
-  if (m.admin) h += `<a class="adminlink" href="#admin">운영진 페이지<span>참가자 · 미션 · 현황</span></a>`;
-  h += `<section><h2 class="sec">조 순위</h2><p class="hint">완등이 많은 조가 위로 올라가요. 같으면 먼저 달성한 조가 앞이에요.</p><div class="rows">`;
+  if (m.admin) h += `<a class="adminlink" href="#admin">운영진 페이지<span>참가자 · 대결 미션 · 현황</span></a>`;
+  h += `<section><h2 class="sec">조 순위</h2><p class="hint">빙고 줄이 많은 조가 위로 올라가요. 같으면 칸을 더 많이 채운 조가 앞이에요.</p><div class="rows">`;
   for (const r of rank) {
-    const t = r.t, n = r.n, names = teamMembers(t).map(x => x.name).join(', ');
+    const t = r.t, names = teamMembers(t).map(x => x.name).join(', ');
     h += `<a class="trow tc${t}" href="#team-${t}"><span class="rk${r.rank === 1 ? ' r1' : ''}">${r.rank ? r.rank + '위' : '–'}</span><span class="tape">${t}조</span>
-      <span class="trow-m"><b>${n} / ${CELLS} 완등${m.team === t ? '<em>우리 조</em>' : ''}</b><p>${esc(names) || '아직 조원이 없어요'}</p></span>${mini(t)}</a>`;
+      <span class="trow-m"><b>빙고 ${r.lines}줄${m.team === t ? '<em>우리 조</em>' : ''}</b><p>${r.n} / ${CELLS}칸 · ${esc(names) || '아직 조원이 없어요'}</p></span>${mini(t)}</a>`;
   }
   return h + `</div></section>`;
 }
@@ -693,95 +679,85 @@ function openZoom(p) {
 /* 칸에 붙여 둔 사진으로 아직 쓰이고 있으면 파일은 남겨 둔다. */
 function dropMissionImg(img) { if (img && !Object.values(S.cells).some(c => c.mImg && c.mImg.p === img.p)) rmFiles(img); }
 
-function cellHTML(t, i, c, openable) {
-  if (!c) return `<button class="cell locked${openable ? ' openable' : ''}" data-act="${openable ? 'spin' : 'locked'}" data-t="${t}" data-i="${i}" aria-label="${i + 1}번 칸, ${openable ? '눌러서 미션 뽑기' : '잠김'}"><span class="hold h${i % 8}"><b>${i + 1}</b></span></button>`;
-  const pop = popCell === t + '-' + i ? ' pop' : '';
-  if (!c.done) return `<a class="cell active${pop}" href="#cell-${t}-${i}"><span class="st">도전 중</span><span class="ct">${esc(c.mTitle)}</span></a>`;
-  const m = c.media && c.media[0];
-  return `<a class="cell done${pop}" href="#cell-${t}-${i}" aria-label="${i + 1}번 칸 완등: ${esc(c.mTitle)}">${m ? mediaTag(m, true) : `<span class="ct">${esc(c.mTitle)}</span>`}<span class="tape">완등</span></a>`;
+const cellName = i => (i === CENTER ? '가운데 칸' : (i + 1) + '번 칸');
+function cellHTML(t, i, c, can, inLine) {
+  const mid = i === CENTER;
+  if (!c) {
+    return `<button class="cell empty${mid ? ' mid' : ''}${can ? ' can' : ''}" data-act="${can ? 'fill' : 'locked'}" data-t="${t}" data-i="${i}" aria-label="${cellName(i)}, ${mid ? '팀 인증샷, ' : ''}${can ? '눌러서 채우기' : '빈 칸'}">${mid ? '<span class="ek">팀<br>인증샷</span>' : `<span class="hold h${i % 8}"></span>`}</button>`;
+  }
+  const m = c.media && c.media[0], pop = popCell === t + '-' + i ? ' pop' : '';
+  const text = c.kind === 'duel' ? c.mTitle : c.title;
+  return `<a class="cell done${inLine ? ' line' : ''}${pop}" href="#cell-${t}-${i}" aria-label="${cellName(i)} ${KIND[c.kind]}: ${esc(text)}">${m ? mediaTag(m, true) : `<span class="ct">${esc(text)}</span>`}${c.kind === 'duel' ? '<span class="kb">대결</span>' : ''}</a>`;
 }
 
 function teamView(t) {
-  const cells = teamCells(t), n = cells.filter(c => c && c.done).length, act = cells.find(c => c && !c.done), can = canEdit(t), mine = meObj().team === t;
-  const openable = can && !act && n < CELLS && !holdCell;
-  const names = teamMembers(t).map(x => x.name);
-  let h = topbar() + `<a class="back" href="#">‹ 전체 조</a>
+  const cells = teamCells(t), n = cells.filter(Boolean).length, can = canEdit(t), mine = meObj().team === t;
+  const won = wonLines(cells), hot = new Set([].concat(...won));
+  const p = kindCount(cells, 'problem'), d = kindCount(cells, 'duel'), ph = cells[CENTER] ? 1 : 0;
+  const mem = teamMembers(t), solved = solvedBy(cells), lim = setting('perPerson');
+  const h = topbar() + `<a class="back" href="#">‹ 전체 조</a>
   <header class="teamhead tc${t}"><div class="bignum">${t}<small>조</small></div>
-    <div class="who"><b>${mine ? '우리 조' : can ? '운영진 권한으로 수정 가능' : '구경 중'}</b>${esc(names.join(', ')) || '아직 조원이 없어요'}</div></header>
+    <div class="who"><b>${mine ? '우리 조' : can ? '운영진 권한으로 수정 가능' : '구경 중'}</b>${esc(mem.map(x => x.name).join(', ')) || '아직 조원이 없어요'}</div></header>
   <section class="prog tc${t}">
-    <div class="prog-top"><span class="prog-n"><b>${n}</b> / ${CELLS} 완등</span><span class="hint">${nextGoalText(n)}</span></div>
-    <div class="track" aria-hidden="true">${Array.from({ length: CELLS }, (_, k) => `<i class="${k < n ? 'd' : ''}${MILESTONES.includes(k + 1) ? ' g' : ''}"></i>`).join('')}</div>
+    <div class="prog-top"><span class="prog-n"><b>${won.length}</b>줄 빙고</span><span class="hint">${n} / ${CELLS}칸 채움</span></div>
     <div class="goals">
-      <div class="goal${n >= 10 ? ' on' : ''}"><b>10칸 · 추첨권 1장</b>${n >= 10 ? '1인당 한 장 확보' : (10 - n) + '칸 남음'}</div>
-      <div class="goal${n >= 16 ? ' on' : ''}"><b>16칸 · 추첨권 1장 더</b>${n >= 16 ? '1인당 한 장 더 확보' : (16 - n) + '칸 남음'}</div>
+      <div class="goal${ph ? ' on' : ''}"><b>인증샷</b>${ph} / 1</div>
+      <div class="goal${p >= QUOTA.problem ? ' on' : ''}"><b>문제</b>${p} / ${QUOTA.problem}</div>
+      <div class="goal${d >= QUOTA.duel ? ' on' : ''}"><b>팀 대결</b>${d} / ${QUOTA.duel}</div>
     </div>
+    ${mem.length ? `<div class="tally" aria-label="조원별로 채운 문제 수">${mem.map(x => { const k = solved[x.id] || 0; return `<span class="${lim && k >= PER_PERSON ? 'full' : ''}">${esc(x.name)} <b>${k}${lim ? ' / ' + PER_PERSON : ''}</b></span>`; }).join('')}</div>` : ''}
   </section>
   <section class="board tc${t}" aria-label="${t}조 빙고판"><i class="bolt"></i><i class="bolt"></i><i class="bolt"></i><i class="bolt"></i>
-    ${cells.map((c, i) => cellHTML(t, i, c, openable)).join('')}</section>
-  <div class="cta tc${t}">`;
-  if (!can) h += `<p>${t}조만 이 빙고판을 바꿀 수 있어요. 칸을 누르면 인증을 구경할 수 있어요.</p>`;
-  else if (act) h += `<a class="btn team" href="#cell-${t}-${act.idx}">진행 중인 미션 인증하기</a><p>${esc(act.mTitle)}</p>`;
-  else if (n >= CELLS) h += `<p>16칸을 모두 완등했어요. 추첨권은 1인당 2장이에요.</p>`;
-  else h += `<button class="btn team" data-act="spin" data-t="${t}">미션 룰렛 돌리기</button><p>${n ? '다음 칸을 열 차례예요.' : '룰렛을 돌려 첫 미션을 뽑아보세요.'} 회색 칸을 직접 눌러도 돼요.</p>`;
-  h += `<button class="btn quiet" data-act="mlist" data-t="${t}">룰렛 미션 목록 보기</button>`;
+    ${cells.map((c, i) => cellHTML(t, i, c, can, hot.has(i))).join('')}</section>
+  <div class="cta tc${t}">
+    <p>${can ? `빈 칸을 눌러서 채워요. 가운데는 팀 인증샷, 나머지는 문제 ${QUOTA.problem}칸과 팀 대결 ${QUOTA.duel}칸이에요.` : `${t}조만 이 빙고판을 바꿀 수 있어요. 채워진 칸을 누르면 구경할 수 있어요.`}</p>
+    <button class="btn quiet" data-act="mlist" data-t="${t}">팀 대결 미션 목록 보기</button></div>`;
   popCell = null;
-  return h + `</div>`;
+  return h;
 }
 
-/* 룰렛에 어떤 미션이 있는지 누구나 볼 수 있는 목록 */
-function missionRows(list, state) {
+/* 팀 대결 미션 목록. 누구나 볼 수 있다. */
+function missionRows(list, used) {
   return list.map(m => {
-    const s = state && state[m.id];
-    return `<div class="qrow${s ? ' got' : ''}${m.img ? ' pic' : ''}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span>${qthumb(m, true)}${s ? `<em class="tag${s === 'now' ? ' now' : ''}">${s === 'now' ? '도전 중' : '완등'}</em>` : '<em></em>'}</div>`;
+    const got = used && used.has(m.id);
+    return `<div class="qrow${got ? ' got' : ''}${m.img ? ' pic' : ''}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span>${qthumb(m, true)}${got ? '<em class="tag">이김</em>' : '<em></em>'}</div>`;
   }).join('');
 }
 function openMissionList(t) {
-  const state = {};
-  Object.values(S.cells).forEach(c => { if (c.team === t && t + '-' + c.idx !== holdCell) state[c.missionId] = c.done ? 'done' : 'now'; });
-  const list = missionList().filter(m => m.active !== false || state[m.id]);
-  const left = list.filter(m => !state[m.id]).length;
+  const used = duelUsed(teamCells(t));
+  const list = missionList().filter(m => m.active !== false || used.has(m.id));
   openSheet(`<div class="tc${t}" style="display:flex;flex-direction:column;gap:16px">
-    <h2>룰렛 미션 목록</h2><p class="sheet-sub">${t}조 기준 · 전체 ${list.length}개 중 아직 안 뽑은 미션 ${left}개</p>
-    <div class="group">${list.length ? missionRows(list, state) : '<p class="empty" style="padding-top:14px">등록된 미션이 없어요.</p>'}</div>
+    <h2>팀 대결 미션</h2><p class="sheet-sub">다른 조와 붙어서 이기면 칸 하나를 채워요. ${t}조는 대결 ${QUOTA.duel}칸 중 ${used.size}칸을 채웠어요.</p>
+    <div class="group">${list.length ? missionRows(list, used) : '<p class="empty" style="padding-top:14px">아직 등록된 대결 미션이 없어요.</p>'}</div>
     <button class="btn" data-act="sheet-close">닫기</button></div>`);
 }
 
 function cellView(t, i) {
-  const c = teamCells(t)[i], can = canEdit(t), adm = meObj().admin;
+  const c = teamCells(t)[i], can = canEdit(t), mid = i === CENTER;
   let h = topbar() + `<a class="back" href="#team-${t}">‹ ${t}조 빙고판</a>`;
+  const top = `<div class="mission-top"><span class="tape">${t}조 · ${cellName(i)}</span>${c ? `<span class="state">${KIND[c.kind]}</span>` : ''}</div>`;
   if (!c) {
-    return h + `<section class="mission tc${t}"><div class="mission-top"><span class="tape">${t}조 · ${i + 1}번 칸</span></div><h1>아직 열리지 않은 칸</h1><p>룰렛을 돌리면 이 칸에 미션이 붙어요.</p></section>`;
+    return h + `<section class="mission tc${t}">${top}<h1>아직 빈 칸</h1><p>${mid ? '조원들이 함께 찍은 인증샷으로 채우는 칸이에요.' : '문제를 완등하거나 팀 대결에서 이기면 채울 수 있어요.'}</p></section>`
+      + (can ? `<div class="cta tc${t}"><button class="btn team" data-act="fill" data-t="${t}" data-i="${i}">이 칸 채우기</button></div>` : '');
   }
-  h += `<section class="mission tc${t}">
-    <div class="mission-top"><span class="tape">${t}조 · ${i + 1}번 칸</span><span class="state">${c.done ? '완등' : '도전 중'}</span></div>
-    <span class="no">No.${c.no}</span><h1>${esc(c.mTitle)}</h1>${c.mDesc ? `<p>${esc(c.mDesc)}</p>` : ''}${picTag(missionImg(c))}</section>`;
-  if (!c.done) {
-    h += `<div class="cta tc${t}">` + (can
-      ? `<button class="btn team" data-act="proof" data-t="${t}" data-i="${i}">완등 인증하기</button><p>사진이나 영상을 올리고 누가 깼는지 표시하면 다음 칸을 열 수 있어요.</p>`
-      : `<p>${t}조가 도전하고 있어요.</p>`) + `</div>`;
-  } else {
-    const who = (c.by || []).map(id => S.members[id]).filter(Boolean).map(m => m.name);
-    h += `<section class="proof tc${t}">
-      ${(c.media || []).length ? `<div class="gallery">${c.media.map(m => mediaTag(m, false)).join('')}</div>` : ''}
-      <h2>${esc(c.title)}</h2>${c.desc ? `<p class="desc">${esc(c.desc)}</p>` : ''}
-      <div class="by">${who.map(n => `<span>${esc(n)}</span>`).join('')}${fmtTime(c.doneAt) ? ' ' + fmtTime(c.doneAt) + ' 완등' : ''}</div></section>`;
-    if (can) {
-      const n = doneCount(t), act = activeCell(t);
-      h += `<div class="stack tc${t}">`;
-      if (!act && n < CELLS) h += `<button class="btn team" data-act="spin" data-t="${t}">다음 미션 뽑기</button>`;
-      h += `<button class="btn ghost" data-act="proof" data-t="${t}" data-i="${i}">인증 내용 수정</button>`;
-      if (adm) h += `<button class="btn danger" data-act="unproof" data-t="${t}" data-i="${i}">인증 취소</button>`;
-      h += `</div>`;
-    }
-  }
-  if (adm) h += `<button class="btn quiet" data-act="clearcell" data-t="${t}" data-i="${i}">이 칸 비우기 (미션 다시 뽑기)</button>`;
+  const who = (c.by || []).map(id => S.members[id]).filter(Boolean).map(m => m.name);
+  h += `<section class="mission tc${t}">${top}`;
+  if (c.kind === 'duel') h += `<span class="kicker">${c.vs ? c.vs + '조와 대결 · 승리' : '팀 대결 승리'}</span><h1>${esc(c.mTitle)}</h1>${c.mDesc ? `<p>${esc(c.mDesc)}</p>` : ''}${picTag(missionImg(c))}`;
+  else if (c.kind === 'photo') h += `<h1>팀 인증샷</h1>`;
+  else h += `<span class="kicker">완등한 문제</span><h1>${esc(c.title)}</h1>`;
+  h += `</section><section class="proof tc${t}">
+    ${(c.media || []).length ? `<div class="gallery">${c.media.map(m => mediaTag(m, false)).join('')}</div>` : ''}
+    ${c.desc ? `<p class="desc">${esc(c.desc)}</p>` : ''}
+    <div class="by">${who.map(n => `<span>${esc(n)}</span>`).join('')}${fmtTime(c.doneAt) ? ' ' + fmtTime(c.doneAt) + ' 등록' : ''}</div></section>`;
+  if (can) h += `<div class="stack tc${t}"><button class="btn ghost" data-act="proof" data-t="${t}" data-i="${i}">내용 수정</button>
+    <button class="btn quiet" data-act="clearcell" data-t="${t}" data-i="${i}">이 칸 비우기</button></div>`;
   return h;
 }
 
 /* ── 운영진 화면 ───────────────────────── */
 function adminView() {
   let h = topbar() + `<a class="back" href="#">‹ 전체 조</a>
-  <div class="tabs" role="tablist">${[['people', '참가자'], ['missions', '미션'], ['status', '현황']].map(([k, l]) => `<button role="tab" aria-selected="${adminTab === k}" data-act="tab" data-tab="${k}">${l}</button>`).join('')}</div>`;
+  <div class="tabs" role="tablist">${[['people', '참가자'], ['missions', '대결 미션'], ['status', '현황']].map(([k, l]) => `<button role="tab" aria-selected="${adminTab === k}" data-act="tab" data-tab="${k}">${l}</button>`).join('')}</div>`;
   if (adminTab === 'people') {
     const all = memberList();
     h += `<div class="bar"><p><b>${all.length}명</b> 등록 · 목표 ${TEAMS * 6}명</p><div><button class="btn sm ghost" data-act="bulk">여러 명 붙여넣기</button><button class="btn sm" data-act="m-edit">한 명 추가</button></div></div>`;
@@ -793,20 +769,21 @@ function adminView() {
     }
   } else if (adminTab === 'missions') {
     const all = missionList(), on = all.filter(m => m.active !== false).length;
-    h += `<div class="bar"><p><b>미션 ${all.length}개</b> · 룰렛에 ${on}개</p><div><button class="btn sm" data-act="q-edit">미션 추가</button></div></div>`;
-    if (on < CELLS) h += `<p class="warn">한 조가 16칸을 채우려면 룰렛에 미션이 16개 이상 있어야 해요. 지금은 ${on}개예요.</p>`;
-    h += `<div class="group">` + (all.length ? all.map(m => `<button class="qrow${m.active === false ? ' off' : ''}${m.img ? ' pic' : ''}" data-act="q-edit" data-id="${m.id}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span>${qthumb(m, false)}<em>${m.active === false ? '꺼짐' : ''}</em></button>`).join('') : '<p class="empty" style="padding-top:14px">미션이 없어요. 추가해주세요.</p>') + `</div>`;
+    h += `<div class="bar"><p><b>대결 미션 ${all.length}개</b> · 고를 수 있는 미션 ${on}개</p><div><button class="btn sm" data-act="q-edit">미션 추가</button></div></div>
+      <p class="hint">조끼리 붙어서 이긴 쪽이 칸을 가져가는 미션이에요. 각 조는 이 중 ${QUOTA.duel}개를 골라서 채워요.</p>`;
+    if (on < QUOTA.duel) h += `<p class="warn">한 조가 대결 칸 ${QUOTA.duel}개를 채우려면 대결 미션이 ${QUOTA.duel}개 이상 있어야 해요. 지금은 ${on}개예요.</p>`;
+    h += `<div class="group">` + (all.length ? all.map(m => `<button class="qrow${m.active === false ? ' off' : ''}${m.img ? ' pic' : ''}" data-act="q-edit" data-id="${m.id}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span>${qthumb(m, false)}<em>${m.active === false ? '꺼짐' : ''}</em></button>`).join('') : '<p class="empty" style="padding-top:14px">대결 미션이 없어요. 추가해주세요.</p>') + `</div>`;
   } else {
-    let total = 0, rows = '';
+    let rows = '';
     for (let t = 1; t <= TEAMS; t++) {
-      const n = doneCount(t), k = earned(n), ppl = teamMembers(t).length; total += k * ppl;
-      rows += `<div class="srow tc${t}"><span class="tape">${t}조</span><span><b>${n} / ${CELLS} 완등</b><p>추첨권 1인당 ${k}장 · ${ppl}명 · 합계 ${k * ppl}장</p></span><button data-act="reset-team" data-t="${t}">초기화</button></div>`;
+      const cs = teamCells(t), n = cs.filter(Boolean).length;
+      rows += `<div class="srow tc${t}"><span class="tape">${t}조</span><span><b>빙고 ${wonLines(cs).length}줄 · ${n} / ${CELLS}칸</b><p>문제 ${kindCount(cs, 'problem')}/${QUOTA.problem} · 대결 ${kindCount(cs, 'duel')}/${QUOTA.duel} · 인증샷 ${cs[CENTER] ? 1 : 0}/1</p></span><button data-act="reset-team" data-t="${t}">초기화</button></div>`;
     }
-    const req = !S.settings.main || S.settings.main.requireMedia !== false;
     const usedMb = Math.round(usedBytes() / 1048576);
-    h += `<div class="bar"><p>지금까지 나간 추첨권 <b>${total}장</b></p></div><div class="group">${rows}</div>
+    h += `<div class="group">${rows}</div>
       <div class="setting"><span class="label">올라온 사진·영상 약 ${usedMb} MB<small>${STORAGE_BUDGET_MB} MB를 넘으면 영상 업로드가 막히고 사진만 올릴 수 있어요.</small></span><div class="meter"><i style="width:${Math.min(100, Math.round(usedMb / STORAGE_BUDGET_MB * 100))}%"></i></div></div>
-      <div class="setting field row"><span class="label">인증에 사진·영상 필수<small>끄면 제목과 사람만으로도 인증할 수 있어요. 업로드가 막혔을 때 쓰세요.</small></span><button class="switch" role="switch" aria-checked="${req}" data-act="toggle-media" aria-label="인증에 사진·영상 필수"></button></div>`;
+      <div class="setting field row"><span class="label">문제는 한 사람당 ${PER_PERSON}개까지<small>끄면 한 사람이 문제 칸을 몇 개든 채울 수 있어요. 조원이 6명보다 적을 때 쓰세요.</small></span><button class="switch" role="switch" aria-checked="${setting('perPerson')}" data-act="toggle-set" data-key="perPerson" aria-label="문제는 한 사람당 ${PER_PERSON}개까지"></button></div>
+      <div class="setting field row"><span class="label">인증샷·문제 칸에 사진 필수<small>끄면 사진 없이도 칸을 채울 수 있어요. 업로드가 막혔을 때 쓰세요.</small></span><button class="switch" role="switch" aria-checked="${setting('requireMedia')}" data-act="toggle-set" data-key="requireMedia" aria-label="인증샷·문제 칸에 사진 필수"></button></div>`;
   }
   return h;
 }
@@ -819,86 +796,61 @@ function openSheet(html) {
 }
 function closeSheet() { sheetEl.hidden = true; sheetEl.innerHTML = ''; sheetLock = false; document.body.classList.remove('noscroll'); }
 
-/* 룰렛 */
-let spinCtx = null;
-function openRoulette(t, idx) {
-  if (!canEdit(t)) return toast('우리 조 빙고판만 바꿀 수 있어요.');
-  if (activeCell(t)) return toast('진행 중인 미션을 먼저 완등해야 다음 칸을 열 수 있어요.');
+/* 빈 칸 채우기: 가운데는 인증샷, 나머지는 문제 완등이나 팀 대결 승리 중에서 고른다. */
+function openFill(t, i) {
+  if (!canEdit(t)) return toast(`${t}조만 이 빙고판을 바꿀 수 있어요.`);
   const cells = teamCells(t);
-  if (idx == null || cells[idx]) idx = cells.findIndex(c => !c);
-  if (idx < 0) return toast('모든 칸을 열었어요.');
-  const list = pool(t);
-  if (!list.length) return toast('뽑을 미션이 없어요. 운영진에게 미션 추가를 부탁해주세요.');
-  spinCtx = { t, idx, list };
-  openSheet(`<div class="tc${t}" style="display:flex;flex-direction:column;gap:16px">
-    <h2>미션 룰렛</h2><p class="sheet-sub">${t}조 · ${idx + 1}번 칸에 붙을 미션을 뽑아요. 남은 미션 ${list.length}개.</p>
-    <div class="wheelwrap"><span class="pointer"></span><canvas id="wheel" width="600" height="600" aria-hidden="true"></canvas></div>
-    <div id="spin-out"></div>
-    <button class="btn team" id="spin-btn" data-act="spin-go">돌리기</button>
-    <details class="more" id="spin-list" open><summary><span class="when-closed">나올 수 있는 미션 ${list.length}개 펼치기</span><span class="when-open">나올 수 있는 미션 ${list.length}개 · 접기</span></summary><div class="group">${missionRows(list)}</div></details></div>`);
-  const cv = document.getElementById('wheel');
-  drawWheel(cv, list);
-  if (document.fonts && document.fonts.load) document.fonts.load('20px "Bagel Fat One"').then(() => { if (cv.isConnected) drawWheel(cv, list); }).catch(() => {});
-}
-function drawWheel(cv, list) {
-  const n = list.length, size = 600, r = size / 2, seg = Math.PI * 2 / n, x = cv.getContext('2d');
-  x.clearRect(0, 0, size, size);
-  for (let k = 0; k < n; k++) {
-    let ci = k % 7; if (k === n - 1 && ci === 0 && n > 1) ci = 3;
-    const col = COLORS[ci + 1];
-    x.beginPath(); x.moveTo(r, r); x.arc(r, r, r, -Math.PI / 2 + k * seg, -Math.PI / 2 + (k + 1) * seg); x.closePath();
-    x.fillStyle = col[0]; x.fill(); x.strokeStyle = '#171A21'; x.lineWidth = 3; if (n > 1) x.stroke();
-    x.save(); x.translate(r, r); x.rotate(k * seg + seg / 2);
-    x.fillStyle = col[1]; x.font = (n > 20 ? 30 : n > 12 ? 38 : 46) + 'px "Bagel Fat One","Malgun Gothic",sans-serif';
-    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(String(list[k].no), 0, -(r - 62)); x.restore();
-  }
-  x.beginPath(); x.arc(r, r, 58, 0, 7); x.fillStyle = '#F8F9FB'; x.fill(); x.lineWidth = 6; x.strokeStyle = '#171A21'; x.stroke();
-  x.beginPath(); x.arc(r, r, 14, 0, 7); x.fillStyle = '#171A21'; x.fill();
-}
-async function spinGo() {
-  if (!spinCtx || sheetLock) return;
-  const { t, idx, list } = spinCtx;
-  if (activeCell(t) || teamCells(t)[idx]) { closeSheet(); return toast('다른 조원이 방금 미션을 뽑았어요.'); }
-  const k = Math.floor(Math.random() * list.length), m = list[k], id = t + '-' + idx;
-  sheetLock = true; document.getElementById('spin-btn').disabled = true;
-  const sl = document.getElementById('spin-list'); if (sl) sl.remove();
-  holdCell = id;
-  const cell = { team: t, idx, missionId: m.id, no: m.no, mTitle: m.title, mDesc: m.desc || '', done: false, drawnBy: meId, drawnAt: Date.now() };
-  if (m.img) cell.mImg = m.img.th ? { p: m.img.p, th: m.img.th } : { p: m.img.p };
-  const saved = await put('cells', id, cell);
-  if (!saved) { holdCell = null; closeSheet(); render(); return; }
-  const cv = document.getElementById('wheel'), segDeg = 360 / list.length;
-  const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
-  const deg = 360 * 6 - (k + 0.5) * segDeg + (Math.random() - 0.5) * segDeg * 0.6;
-  const dur = reduce ? 0.2 : 4.4;
-  cv.style.transition = `transform ${dur}s cubic-bezier(.12,.72,.08,1)`;
-  requestAnimationFrame(() => { cv.style.transform = `rotate(${deg}deg)`; });
-  setTimeout(() => {
-    holdCell = null; popCell = id; sheetLock = false; render();
-    const out = document.getElementById('spin-out'); if (!out) return;
-    out.innerHTML = `<div class="result"><span class="no">No.${m.no}</span><h3>${esc(m.title)}</h3>${m.desc ? `<p>${esc(m.desc)}</p>` : ''}${picTag(m.img)}</div>`;
-    hydrate(out);
-    const b = document.getElementById('spin-btn'); b.disabled = false; b.textContent = `${idx + 1}번 칸에 붙었어요 · 확인`; b.dataset.act = 'sheet-close'; b.classList.remove('team');
-    out.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, dur * 1000 + 250);
+  if (cells[i]) { location.hash = `cell-${t}-${i}`; return; }
+  if (i === CENTER) return openProof(t, i, 'photo');
+  const p = kindCount(cells, 'problem'), d = kindCount(cells, 'duel'), used = duelUsed(cells);
+  const left = missionList().filter(m => m.active !== false && !used.has(m.id)).length;
+  const pFull = p >= QUOTA.problem, dFull = d >= QUOTA.duel;
+  openSheet(`<div class="tc${t}" style="display:flex;flex-direction:column;gap:12px">
+    <h2>${cellName(i)} 채우기</h2><p class="sheet-sub" style="margin-top:-6px">무엇으로 채울지 골라주세요.</p>
+    <button class="pickrow" data-act="fill-kind" data-kind="problem" data-t="${t}" data-i="${i}"${pFull ? ' disabled' : ''}><b>문제 완등</b><span>${pFull ? `문제 칸 ${QUOTA.problem}개를 다 채웠어요` : `탑 홀드 사진과 문제 설명을 올려요 · ${p} / ${QUOTA.problem}칸`}</span></button>
+    <button class="pickrow" data-act="fill-kind" data-kind="duel" data-t="${t}" data-i="${i}"${dFull || !left ? ' disabled' : ''}><b>팀 대결 승리</b><span>${dFull ? `대결 칸 ${QUOTA.duel}개를 다 채웠어요` : !left ? '고를 수 있는 대결 미션이 없어요' : `다른 조와 붙어서 이겼을 때 · ${d} / ${QUOTA.duel}칸`}</span></button>
+    <button class="btn quiet" data-act="sheet-close">취소</button></div>`);
 }
 
-/* 완등 인증 */
+/* 칸 내용 올리기 · 고치기 */
 let pf = null;
-function openProof(t, i) {
-  const c = teamCells(t)[i];
-  if (!c || !canEdit(t)) return;
-  pf = { t, i, media: (c.media || []).map(m => Object.assign({}, m)), by: new Set(c.by || []), busy: false };
-  const members = teamMembers(t);
+function openProof(t, i, kind) {
+  if (!canEdit(t)) return;
+  const cells = teamCells(t), c = cells[i];
+  kind = c ? c.kind : (i === CENTER ? 'photo' : kind);
+  if (!KIND[kind] || (kind === 'photo') !== (i === CENTER)) return;
+  pf = { t, i, kind, edit: !!c, media: (c && c.media || []).map(m => Object.assign({}, m)), by: new Set(c && c.by || []), mission: c && c.missionId || '', vs: c && c.vs || 0, busy: false };
+  const members = teamMembers(t), req = setting('requireMedia');
+  const mediaField = (label, optional) => `<div class="field"><span class="label">${label}${optional ? '<small>없어도 돼요</small>' : ''}</span><div class="mgrid" id="pf-media"></div><p class="hint">최대 ${MAX_MEDIA}개 · 영상은 720p로 줄여서 올라가요</p></div>`;
+  const memo = `<div class="field"><label for="pf-desc">한마디 (선택)</label><textarea class="inp" id="pf-desc" rows="2" maxlength="300" placeholder="남기고 싶은 말">${esc(c && c.desc || '')}</textarea></div>`;
+  let head, body;
+  if (kind === 'photo') {
+    head = '팀 인증샷';
+    body = `<p class="hint">조원들이 함께 찍은 사진으로 가운데 칸을 채워요.</p>` + mediaField('팀 인증샷', !req) + memo;
+  } else if (kind === 'problem') {
+    const solved = solvedBy(cells, i), lim = setting('perPerson');
+    head = '문제 완등';
+    body = `<div class="field"><label for="pf-title">어떤 문제인가요?</label><input class="inp" id="pf-title" maxlength="40" placeholder="예: 3섹터 보라노랑" value="${esc(c && c.title || '')}"></div>`
+      + mediaField('탑 홀드 찍은 사진', !req)
+      + `<div class="field"><span class="label">누가 깼나요?<small>${lim ? `한 사람이 ${PER_PERSON}문제씩 채워요` : '한 명을 골라주세요'}</small></span>
+        <div class="chips" id="pf-who">${members.length ? members.map(m => { const k = solved[m.id] || 0, on = pf.by.has(m.id); return `<button type="button" class="chip" data-act="pf-who" data-id="${m.id}" aria-pressed="${on}"${lim && k >= PER_PERSON && !on ? ' disabled' : ''}>${esc(m.name)}<small>${k}${lim ? '/' + PER_PERSON : ''}</small></button>`; }).join('') : '<p class="hint">이 조에 등록된 조원이 없어요.</p>'}</div></div>`
+      + memo;
+  } else {
+    const used = duelUsed(cells, i);
+    const list = missionList().filter(m => (m.active !== false && !used.has(m.id)) || m.id === pf.mission);
+    if (c && !S.missions[c.missionId]) list.unshift({ id: c.missionId, no: c.no, title: c.mTitle, desc: c.mDesc });
+    head = '팀 대결 승리';
+    body = `<div class="field"><span class="label">어떤 대결에서 이겼나요?</span><div class="group" id="pf-missions">${list.length ? list.map(m => `<button type="button" class="qrow${m.img ? ' pic' : ''}" data-act="pf-mission" data-id="${m.id}" aria-pressed="${m.id === pf.mission}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span>${qthumb(m, false)}<em></em></button>`).join('') : '<p class="empty" style="padding-top:14px">고를 수 있는 대결 미션이 없어요.</p>'}</div></div>
+      <div class="field"><span class="label">상대 조</span><div class="seg six" id="pf-vs">${Array.from({ length: TEAMS }, (_, k) => k + 1).filter(v => v !== t).map(v => `<button type="button" data-act="pf-vs" data-v="${v}" aria-pressed="${pf.vs === v}">${v}조</button>`).join('')}</div></div>
+      <div class="field"><span class="label">누가 나갔나요?<small>여러 명을 고를 수 있어요</small></span>
+        <div class="chips" id="pf-who">${members.length ? members.map(m => `<button type="button" class="chip" data-act="pf-who" data-id="${m.id}" aria-pressed="${pf.by.has(m.id)}">${esc(m.name)}</button>`).join('') : '<p class="hint">이 조에 등록된 조원이 없어요.</p>'}</div></div>`
+      + mediaField('사진 · 영상', true) + memo;
+  }
   openSheet(`<form id="proof-form" class="tc${t}" novalidate>
-    <h2>${c.done ? '인증 내용 수정' : '완등 인증'}</h2><p class="sheet-sub">No.${c.no} ${esc(c.mTitle)}</p>
-    <div class="field"><span class="label">사진 · 영상</span><div class="mgrid" id="pf-media"></div><p class="hint">최대 ${MAX_MEDIA}개 · 영상은 720p로 줄여서 올라가요</p></div>
-    <div class="field"><label for="pf-title">제목</label><input class="inp" id="pf-title" maxlength="40" placeholder="예: 세 번 만에 잡은 다이노" value="${esc(c.title || '')}"></div>
-    <div class="field"><label for="pf-desc">설명</label><textarea class="inp" id="pf-desc" rows="3" maxlength="300" placeholder="어떻게 깼는지 한마디">${esc(c.desc || '')}</textarea></div>
-    <div class="field"><span class="label">누가 깼나요?<small>여러 명을 고를 수 있어요</small></span>
-      <div class="chips" id="pf-who">${members.length ? members.map(m => `<button type="button" class="chip" data-act="pf-who" data-id="${m.id}" aria-pressed="${pf.by.has(m.id)}">${esc(m.name)}</button>`).join('') : '<p class="hint">이 조에 등록된 조원이 없어요.</p>'}</div></div>
+    <h2>${pf.edit ? head + ' 수정' : head}</h2><p class="sheet-sub">${t}조 · ${cellName(i)}</p>
+    ${body}
     <p class="err" id="pf-err" hidden></p>
-    <button class="btn team" type="submit" id="pf-submit">${c.done ? '수정 저장' : '완등 인증하기'}</button>
+    <button class="btn team" type="submit" id="pf-submit">${pf.edit ? '수정 저장' : '칸 채우기'}</button>
   </form>`);
   drawProofMedia();
 }
@@ -1002,17 +954,34 @@ const extOf = b => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'we
 
 async function submitProof() {
   if (!pf || pf.busy) return;
-  const { t, i } = pf, id = t + '-' + i, c = S.cells[id];
+  const { t, i, kind } = pf, id = t + '-' + i, cells = teamCells(t), c = cells[i];
   const err = document.getElementById('pf-err'), btn = document.getElementById('pf-submit');
-  const title = document.getElementById('pf-title').value.trim(), desc = document.getElementById('pf-desc').value.trim();
-  const req = !S.settings.main || S.settings.main.requireMedia !== false;
+  const tEl = document.getElementById('pf-title'), dEl = document.getElementById('pf-desc');
+  const desc = dEl ? dEl.value.trim() : '', members = teamMembers(t);
+  let title = kind === 'photo' ? '팀 인증샷' : tEl ? tEl.value.trim() : '', extra = {};
   err.hidden = true;
-  if (!c) { closeSheet(); return toast('이 칸이 비워졌어요.'); }
-  if (req && !pf.media.length) return showErr(err, '인증할 사진이나 영상을 한 개 이상 올려주세요.');
-  if (!title) return showErr(err, '제목을 적어주세요.');
-  if (!pf.by.size && teamMembers(t).length) return showErr(err, '누가 깼는지 한 명 이상 골라주세요.');
+  if (pf.edit && !c) { pf = null; closeSheet(); return toast('이 칸이 비워졌어요.'); }
+  if (!pf.edit && c) { pf = null; closeSheet(); return toast('다른 조원이 방금 이 칸을 채웠어요.'); }
+  if (kindCount(cells, kind, i) >= QUOTA[kind]) return showErr(err, `${KIND[kind]} 칸은 ${QUOTA[kind]}개까지 채울 수 있어요.`);
+  if (kind === 'problem') {
+    if (!title) return showErr(err, '어떤 문제인지 적어주세요. 예: 3섹터 보라노랑');
+    if (members.length && pf.by.size !== 1) return showErr(err, '누가 깼는지 한 명을 골라주세요.');
+    const who = [...pf.by][0];
+    if (who && setting('perPerson') && (solvedBy(cells, i)[who] || 0) >= PER_PERSON) return showErr(err, `${S.members[who] ? S.members[who].name : '이 조원'} 님은 이미 ${PER_PERSON}문제를 채웠어요.`);
+  } else if (kind === 'duel') {
+    const m = S.missions[pf.mission], same = c && c.missionId === pf.mission;
+    if (!pf.mission || (!m && !same)) return showErr(err, '어떤 대결에서 이겼는지 골라주세요.');
+    if (duelUsed(cells, i).has(pf.mission)) return showErr(err, '이 대결 미션은 이미 다른 칸에 썼어요.');
+    if (!pf.vs) return showErr(err, '상대 조를 골라주세요.');
+    if (members.length && !pf.by.size) return showErr(err, '누가 나갔는지 한 명 이상 골라주세요.');
+    extra = m ? { missionId: pf.mission, no: m.no, mTitle: m.title, mDesc: m.desc || '', vs: pf.vs } : { missionId: c.missionId, no: c.no, mTitle: c.mTitle, mDesc: c.mDesc || '', vs: pf.vs };
+    const img = m ? m.img : c.mImg;
+    if (img) extra.mImg = img.th ? { p: img.p, th: img.th } : { p: img.p };
+    title = extra.mTitle;
+  }
+  if (kind !== 'duel' && setting('requireMedia') && !pf.media.length) return showErr(err, kind === 'photo' ? '팀 인증샷을 올려주세요.' : '탑 홀드를 찍은 사진을 올려주세요.');
   pf.busy = true; sheetLock = true; btn.disabled = true;
-  const stop = msg => { pf.busy = false; sheetLock = false; btn.disabled = false; btn.textContent = c.done ? '수정 저장' : '완등 인증하기'; showErr(err, msg); };
+  const stop = msg => { pf.busy = false; sheetLock = false; btn.disabled = false; btn.textContent = pf.edit ? '수정 저장' : '칸 채우기'; showErr(err, msg); };
   /* 1) 올리기 전에 사진은 줄이고 영상은 720p로 바꾼다. 다시 눌렀을 때 또 바꾸지 않게 결과를 붙여 둔다. */
   const fresh = pf.media.filter(m => m.file);
   let nv = 0, add = 0;
@@ -1029,7 +998,7 @@ async function submitProof() {
     if (m.blob.size > MAX_VIDEO_MB * 1048576) return stop(m.raw ? '이 폰에서는 영상을 줄이지 못했고 원본은 너무 커요. 더 짧게 찍어서 다시 올려주세요.' : '영상이 너무 길어요. 더 짧은 영상으로 올려주세요.');
     add += m.blob.size;
   }
-  if (add && usedBytes() + add > STORAGE_BUDGET_MB * 1048576) return stop('영상 저장 공간이 거의 찼어요. 이 미션은 사진으로 인증해주세요.');
+  if (add && usedBytes() + add > STORAGE_BUDGET_MB * 1048576) return stop('영상 저장 공간이 거의 찼어요. 사진으로 올려주세요.');
   /* 2) 올리기 */
   const media = []; let k = 0;
   try {
@@ -1048,25 +1017,27 @@ async function submitProof() {
     console.error(e);
     return stop('파일을 올리지 못했어요. 연결 상태를 확인하고 다시 눌러주세요.');
   }
-  const was = c.done, before = doneCount(t);
-  const saved = await put('cells', id, Object.assign({}, c, { done: true, title, desc, by: [...pf.by], media, doneAt: c.doneAt || Date.now(), doneBy: c.doneBy || meId }));
-  (c.media || []).filter(o => !media.some(n => n.p === o.p)).forEach(rmFiles);
-  pf = null; closeSheet();
+  /* 3) 칸 저장. 그 사이 다른 조원이 같은 칸을 채웠으면 덮어쓰지 않는다. */
+  const now = teamCells(t);
+  if (!pf.edit && now[i]) { media.forEach(rmFiles); pf = null; closeSheet(); return toast('다른 조원이 방금 이 칸을 채웠어요.'); }
+  const before = wonLines(now).length, old = S.cells[id];
+  popCell = id;
+  const saved = await put('cells', id, Object.assign({ team: t, idx: i, kind, done: true, title, desc, by: [...pf.by], media, doneAt: c ? c.doneAt || Date.now() : Date.now(), doneBy: c ? c.doneBy || meId : meId }, extra));
+  (old && old.media || []).filter(o => !media.some(n => n.p === o.p)).forEach(rmFiles);
+  const edit = pf.edit; pf = null; closeSheet();
   if (!saved) return;
-  const after = doneCount(t);
-  if (!was && after > before && MILESTONES.includes(after)) celebrate(t, after);
-  else toast(was ? '수정했어요.' : '완등 인증 완료! 다음 칸을 열 수 있어요.');
+  const after = teamCells(t), lines = wonLines(after).length, all = after.every(Boolean);
+  if (!edit && (lines > before || all)) celebrate(t, lines, all);
+  else toast(edit ? '수정했어요.' : '칸을 채웠어요.');
 }
 
 /* 축하 */
-function celebrate(t, n) {
-  const all = n >= CELLS, ppl = teamMembers(t).length;
+function celebrate(t, lines, all) {
   fxEl.innerHTML = `<div class="fx tc${t}"><canvas></canvas><div class="fx-body">
     <span class="tape">${t}조</span>
-    <h2>${all ? '빙고판 올 클리어!' : '10칸 완등!'}</h2>
-    <p class="lead">${all ? '16칸을 전부 완등했어요' : '첫 번째 미션 성공'}</p>
-    <div class="ticket"><b>추첨권</b><span>1인당<br>${all ? '1장 더' : '1장'}</span></div>
-    <p class="small">${ppl ? `조원 ${ppl}명 모두 ` : ''}${all ? '한 장씩 더 받아요. 지금까지 1인당 2장.' : '한 장씩 받아요. 16칸을 다 깨면 한 장 더!'}</p>
+    <h2>${all ? '올 빙고!' : '빙고!'}</h2>
+    <p class="lead">${all ? '25칸을 전부 채웠어요' : '한 줄을 완성했어요'}</p>
+    <div class="ticket"><b>${lines}줄</b><span>지금까지<br>완성한 빙고</span></div>
     <button class="btn" data-act="fx-close">${all ? '확인' : '계속 오르기'}</button></div></div>`;
   fxEl.hidden = false; document.body.classList.add('noscroll');
   confetti(fxEl.querySelector('canvas'));
@@ -1156,11 +1127,11 @@ function openMission(id) {
   const m = id ? S.missions[id] : null;
   qf = { img: m && m.img ? m.img : null, file: null, url: '', busy: false };
   openSheet(`<form id="mission-form" data-id="${id || ''}">
-    <h2>${m ? 'No.' + m.no + ' 미션 수정' : '미션 추가'}</h2>
-    <div class="field"><label for="qf-title">미션 이름</label><input class="inp" id="qf-title" maxlength="30" required value="${esc(m ? m.title : '')}" placeholder="예: 다이노 성공"></div>
-    <div class="field"><label for="qf-desc">설명</label><textarea class="inp" id="qf-desc" rows="3" maxlength="200" placeholder="성공 조건과 인증 방법">${esc(m ? m.desc : '')}</textarea></div>
-    <div class="field"><span class="label">미션 사진<small>"사진과 같은 홀드 찾기"처럼 사진을 보고 푸는 미션에 넣어요. 없어도 돼요.</small></span><div class="mgrid" id="qf-media"></div></div>
-    <div class="field row"><span class="label">룰렛에 넣기<small>끄면 새로 뽑히지 않아요. 이미 뽑은 조의 칸은 그대로예요.</small></span><button type="button" class="switch" id="qf-on" role="switch" aria-checked="${!m || m.active !== false}" data-act="switch" aria-label="룰렛에 넣기"></button></div>
+    <h2>${m ? 'No.' + m.no + ' 대결 미션 수정' : '대결 미션 추가'}</h2>
+    <div class="field"><label for="qf-title">미션 이름</label><input class="inp" id="qf-title" maxlength="30" required value="${esc(m ? m.title : '')}" placeholder="예: 가위바위보"></div>
+    <div class="field"><label for="qf-desc">설명</label><textarea class="inp" id="qf-desc" rows="3" maxlength="200" placeholder="어떻게 겨루고 누가 이기는지">${esc(m ? m.desc : '')}</textarea></div>
+    <div class="field"><span class="label">미션 사진<small>사진을 보고 겨루는 미션에 넣어요. 없어도 돼요.</small></span><div class="mgrid" id="qf-media"></div></div>
+    <div class="field row"><span class="label">목록에 보이기<small>끄면 새로 고를 수 없어요. 이미 채운 칸은 그대로예요.</small></span><button type="button" class="switch" id="qf-on" role="switch" aria-checked="${!m || m.active !== false}" data-act="switch" aria-label="목록에 보이기"></button></div>
     <p class="err" id="qf-err" hidden></p>
     <button class="btn" type="submit">저장</button>
     ${m ? `<button class="btn danger" type="button" data-act="q-del" data-id="${id}">미션 삭제</button>` : ''}
@@ -1216,20 +1187,27 @@ document.addEventListener('click', async e => {
   switch (d.act) {
     case 'retry': boot(); break;
     case 'logout': meId = null; try { localStorage.removeItem('oreurak:me'); } catch (x) {} location.hash = ''; render(); break;
-    case 'sheet-close': if (!sheetLock) { closeSheet(); pf = null; spinCtx = null; qf = null; } break;
+    case 'sheet-close': if (!sheetLock) { closeSheet(); pf = null; qf = null; } break;
     case 'fx-close': closeFx(); break;
     case 'zoom': e.preventDefault(); openZoom(d.p); break;
     case 'zoom-toggle': { const big = el.classList.toggle('big'); if (big) { el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2; el.scrollTop = (el.scrollHeight - el.clientHeight) / 2; } break; }
     case 'qf-rm': if (qf && !qf.busy) { if (qf.url) URL.revokeObjectURL(qf.url); qf.file = null; qf.url = ''; qf.img = null; drawMissionMedia(); } break;
-    case 'spin': openRoulette(t, i); break;
-    case 'spin-go': spinGo(); break;
+    case 'fill': openFill(t, i); break;
+    case 'fill-kind': openProof(t, i, d.kind); break;
     case 'mlist': openMissionList(t); break;
-    case 'locked': toast(!canEdit(t) ? `${t}조만 이 빙고판을 바꿀 수 있어요.` : activeCell(t) ? '진행 중인 미션을 먼저 완등해야 다음 칸을 열 수 있어요.' : '지금은 열 수 없는 칸이에요.'); break;
+    case 'locked': toast(`${t}조만 이 빙고판을 바꿀 수 있어요.`); break;
     case 'proof': openProof(t, i); break;
-    case 'pf-who': { const on = el.getAttribute('aria-pressed') !== 'true'; el.setAttribute('aria-pressed', on); on ? pf.by.add(d.id) : pf.by.delete(d.id); break; }
+    case 'pf-who': {
+      if (!pf || pf.busy) break;
+      if (pf.kind === 'problem') { const was = pf.by.has(d.id); pf.by.clear(); if (!was) pf.by.add(d.id); }
+      else if (pf.by.has(d.id)) pf.by.delete(d.id); else pf.by.add(d.id);
+      el.parentElement.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', pf.by.has(b.dataset.id)));
+      break;
+    }
+    case 'pf-mission': if (pf && !pf.busy) { pf.mission = d.id; el.parentElement.querySelectorAll('.qrow').forEach(b => b.setAttribute('aria-pressed', b === el)); } break;
+    case 'pf-vs': if (pf && !pf.busy) { pf.vs = +d.v; el.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); } break;
     case 'pf-rm': if (pf && !pf.busy) { pf.media.splice(+d.k, 1); drawProofMedia(); } break;
-    case 'unproof': if (armed(el, '한 번 더 누르면 인증이 취소돼요')) { const c = S.cells[t + '-' + i]; if (c) { dropMedia(c); await put('cells', t + '-' + i, Object.assign({ team: c.team, idx: c.idx, missionId: c.missionId, no: c.no, mTitle: c.mTitle, mDesc: c.mDesc, done: false, drawnBy: c.drawnBy, drawnAt: c.drawnAt }, c.mImg ? { mImg: c.mImg } : {})); toast('인증을 취소했어요.'); } } break;
-    case 'clearcell': if (armed(el, '한 번 더 누르면 칸이 비워져요')) { dropMedia(S.cells[t + '-' + i]); await del('cells', t + '-' + i); location.hash = 'team-' + t; toast('칸을 비웠어요.'); } break;
+    case 'clearcell': if (canEdit(t) && armed(el, '한 번 더 누르면 칸이 비워져요')) { dropMedia(S.cells[t + '-' + i]); await del('cells', t + '-' + i); location.hash = 'team-' + t; toast('칸을 비웠어요.'); } break;
     case 'tab': adminTab = d.tab; render(); break;
     case 'm-edit': openMember(d.id); break;
     case 'm-del': if (armed(el, '한 번 더 누르면 삭제돼요')) { closeSheet(); await del('members', d.id); toast('삭제했어요.'); } break;
@@ -1238,7 +1216,7 @@ document.addEventListener('click', async e => {
     case 'q-del': if (armed(el, '한 번 더 누르면 삭제돼요')) { const gone = S.missions[d.id]; closeSheet(); qf = null; if (await del('missions', d.id)) { if (gone) dropMissionImg(gone.img); toast('삭제했어요.'); } } break;
     case 'pick': el.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); break;
     case 'switch': el.setAttribute('aria-checked', el.getAttribute('aria-checked') !== 'true'); break;
-    case 'toggle-media': { const cur = S.settings.main || {}; await put('settings', 'main', Object.assign({}, cur, { requireMedia: cur.requireMedia === false })); break; }
+    case 'toggle-set': { const cur = S.settings.main || {}; await put('settings', 'main', Object.assign({}, cur, { [d.key]: cur[d.key] === false })); break; }
     case 'reset-team': if (armed(el, '한 번 더')) { const ks = Object.keys(S.cells).filter(k => S.cells[k].team === t); for (const k of ks) { dropMedia(S.cells[k]); await del('cells', k); } toast(`${t}조 빙고판을 초기화했어요.`); } break;
   }
 });
