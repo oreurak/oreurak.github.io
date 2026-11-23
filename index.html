@@ -202,6 +202,7 @@ textarea.inp{resize:vertical;line-height:1.5}
 .cell.done img,.cell.done video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .cell.done .ct{padding:0 4px;font-size:10px;font-weight:700;text-align:center;line-height:1.25;max-height:3.75em;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
 .cell .kb{position:absolute;left:0;bottom:0;font-size:9.5px;font-weight:700;line-height:1.3;padding:1px 5px 2px;background:var(--ink);color:#fff;border-radius:0 5px 0 0}
+.cell.k-duel .ct{align-self:start;margin-top:6px;max-height:2.5em}
 /* 빙고가 된 줄의 칸에는 테두리를 두른다 */
 .cell.line::after{content:"";position:absolute;inset:0;border:3px solid var(--ink);border-radius:inherit;pointer-events:none}
 .cell.pop{animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
@@ -249,13 +250,16 @@ textarea.inp{resize:vertical;line-height:1.5}
 .madd{aspect-ratio:1;border-radius:10px;border:1.5px dashed var(--ink-3);display:grid;place-content:center;justify-items:center;gap:2px;font-size:11.5px;font-weight:600;color:var(--ink-2);cursor:pointer;background:#fff}
 .madd b{font-size:24px;line-height:1;font-weight:400;color:var(--ink)}
 .madd input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
-.vplay{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:rgba(23,26,33,.72)}
-.vplay::after{content:"";position:absolute;left:10px;top:7px;border:6px solid transparent;border-left:9px solid #fff;border-right:0}
-.vtile{font-size:11px;font-weight:700}
-.mthumb .vtile{position:absolute;inset:0;display:grid;place-items:center;color:#fff}
 .meter{height:8px;border-radius:99px;background:var(--line);margin-top:10px;overflow:hidden}
 .meter i{display:block;height:100%;background:var(--ink);border-radius:99px}
-.vbadge{position:absolute;left:5px;bottom:5px;font-size:10px;font-weight:700;background:rgba(23,26,33,.8);color:#fff;border-radius:4px;padding:1px 5px}
+
+/* ── 칸 자리 바꾸기 ─────────────────────────── */
+.board .cell{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.board .cell img{pointer-events:none;-webkit-user-drag:none}
+.cell.dragging{opacity:.28}
+.cell.ghost{position:fixed;z-index:70;margin:0;pointer-events:none;transform:scale(1.14) rotate(-3deg);box-shadow:0 14px 28px -8px rgba(23,26,33,.55);animation:none}
+.cell.drop::before{content:"";position:absolute;inset:0;z-index:2;border:3px dashed var(--ink);border-radius:inherit;background:rgba(255,255,255,.45)}
+body.dragging{-webkit-user-select:none;user-select:none;cursor:grabbing}
 
 /* ── 칸 채우기 ─────────────────────────── */
 .pickrow{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:15px 16px;border-radius:14px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--line);text-align:left}
@@ -383,11 +387,8 @@ const LINES = (() => {
   L.push(ix.map(k => k * N + k), ix.map(k => k * N + (N - 1 - k)));
   return L;
 })();
-const MAX_MEDIA = 4, MAX_VIDEO_MB = 50;
-/* 영상은 올리기 직전에 폰에서 짧은 변 720px · H.264 mp4로 다시 인코딩한다. */
-const VIDEO_SHORT = 720, VIDEO_BPS = 2e6;
-const MEDIABUNNY = 'https://cdn.jsdelivr.net/npm/mediabunny@1.65.2/dist/bundles/mediabunny.min.mjs';
-/* 올라온 파일 합계가 이 값을 넘으면 영상 업로드를 막는다 (Supabase 무료 저장 1GB 기준). 유료로 올리면 키우면 된다. */
+const MAX_MEDIA = 4;
+/* 올라온 사진 합계가 이 값을 넘으면 더 올리지 못하게 막는다 (Supabase 무료 저장 1GB 기준). */
 const STORAGE_BUDGET_MB = 900;
 const EVENT = { date: '11.28 토', place: '피커스 종로점' };
 const COLORS = [null, ['#FFC533','#171A21'], ['#FF7F32','#171A21'], ['#108A5C','#fff'], ['#2D5BE3','#fff'], ['#E23B3B','#fff'], ['#7A4FD8','#fff'], ['#DB3A82','#fff']];
@@ -559,6 +560,7 @@ function route() {
 
 let lastKey = '';
 function render() {
+  if (drag && drag.on) { drag.stale = true; return; }   /* 칸을 끌고 있는 동안에는 화면을 다시 그리지 않는다 */
   if (!ready) {
     app.dataset.v = 'loading';
     app.innerHTML = failed
@@ -642,20 +644,14 @@ function homeView() {
   return h + `</div></section>`;
 }
 
+/* 사진만 다룬다. 빙고판에는 작은 미리보기를, 상세에는 원본을 보여 준다. */
 function mediaTag(m, thumb) {
-  const img = p => { const u = urlCache[p] || ''; return `<img data-m="${esc(p)}"${u ? ` src="${esc(u)}"` : ''} alt="" loading="lazy">`; };
-  if (thumb) {
-    if (m.th) return img(m.th) + (m.t === 'video' ? '<span class="vplay"></span>' : '');
-    return m.t === 'video' ? '<span class="vtile">영상</span>' : img(m.p);
-  }
-  if (m.t !== 'video') return img(m.p);
-  const u = urlCache[m.p] || '', pu = m.th ? (urlCache[m.th] || '') : '';
-  return `<video data-m="${esc(m.p)}"${u ? ` src="${esc(u)}"` : ''}${m.th ? ` data-poster="${esc(m.th)}"` : ''}${pu ? ` poster="${esc(pu)}"` : ''} controls playsinline preload="${m.th ? 'none' : 'metadata'}"></video>`;
+  const p = thumb && m.th ? m.th : m.p, u = urlCache[p] || '';
+  return `<img data-m="${esc(p)}"${u ? ` src="${esc(u)}"` : ''} alt="" loading="lazy" draggable="false">`;
 }
 function hydrate(root) {
   const get = async p => urlCache[p] || (urlCache[p] = await adapter.url(p));
   root.querySelectorAll('[data-m]:not([src])').forEach(async el => { try { const u = await get(el.dataset.m); if (u && el.isConnected) el.src = u; } catch (e) {} });
-  root.querySelectorAll('[data-poster]:not([poster])').forEach(async el => { try { const u = await get(el.dataset.poster); if (u && el.isConnected) el.poster = u; } catch (e) {} });
 }
 const usedBytes = () => Object.values(S.cells).reduce((a, c) => a + (c.media || []).reduce((x, m) => x + (m.s || 0), 0), 0)
   + Object.values(S.missions).reduce((a, m) => a + (m.img && m.img.s || 0), 0);
@@ -687,7 +683,7 @@ function cellHTML(t, i, c, can, inLine) {
   }
   const m = c.media && c.media[0], pop = popCell === t + '-' + i ? ' pop' : '';
   const text = c.kind === 'duel' ? c.mTitle : c.title;
-  return `<a class="cell done${inLine ? ' line' : ''}${pop}" href="#cell-${t}-${i}" aria-label="${cellName(i)} ${KIND[c.kind]}: ${esc(text)}">${m ? mediaTag(m, true) : `<span class="ct">${esc(text)}</span>`}${c.kind === 'duel' ? '<span class="kb">대결</span>' : ''}</a>`;
+  return `<a class="cell done k-${c.kind}${inLine ? ' line' : ''}${pop}" href="#cell-${t}-${i}" data-t="${t}" data-i="${i}" draggable="false" aria-label="${cellName(i)} ${KIND[c.kind]}: ${esc(text)}">${m ? mediaTag(m, true) : `<span class="ct">${esc(text)}</span>`}${c.kind === 'duel' ? '<span class="kb">대결</span>' : ''}</a>`;
 }
 
 function teamView(t) {
@@ -711,6 +707,7 @@ function teamView(t) {
     ${cells.map((c, i) => cellHTML(t, i, c, can, hot.has(i))).join('')}</section>
   <div class="cta tc${t}">
     <p>${can ? `빈 칸을 눌러서 채워요. 가운데는 팀 인증샷, 나머지는 문제 ${QUOTA.problem}칸과 팀 대결 ${QUOTA.duel}칸이에요.` : `${t}조만 이 빙고판을 바꿀 수 있어요. 채워진 칸을 누르면 구경할 수 있어요.`}</p>
+    ${can && n ? '<p>채운 칸을 길게 눌러서 끌면 자리를 바꿀 수 있어요.</p>' : ''}
     <button class="btn quiet" data-act="mlist" data-t="${t}">팀 대결 미션 목록 보기</button></div>`;
   popCell = null;
   return h;
@@ -781,9 +778,9 @@ function adminView() {
     }
     const usedMb = Math.round(usedBytes() / 1048576);
     h += `<div class="group">${rows}</div>
-      <div class="setting"><span class="label">올라온 사진·영상 약 ${usedMb} MB<small>${STORAGE_BUDGET_MB} MB를 넘으면 영상 업로드가 막히고 사진만 올릴 수 있어요.</small></span><div class="meter"><i style="width:${Math.min(100, Math.round(usedMb / STORAGE_BUDGET_MB * 100))}%"></i></div></div>
+      <div class="setting"><span class="label">올라온 사진 약 ${usedMb} MB<small>${STORAGE_BUDGET_MB} MB를 넘으면 더 올릴 수 없어요.</small></span><div class="meter"><i style="width:${Math.min(100, Math.round(usedMb / STORAGE_BUDGET_MB * 100))}%"></i></div></div>
       <div class="setting field row"><span class="label">문제는 한 사람당 ${PER_PERSON}개까지<small>끄면 한 사람이 문제 칸을 몇 개든 채울 수 있어요. 조원이 6명보다 적을 때 쓰세요.</small></span><button class="switch" role="switch" aria-checked="${setting('perPerson')}" data-act="toggle-set" data-key="perPerson" aria-label="문제는 한 사람당 ${PER_PERSON}개까지"></button></div>
-      <div class="setting field row"><span class="label">인증샷·문제 칸에 사진 필수<small>끄면 사진 없이도 칸을 채울 수 있어요. 업로드가 막혔을 때 쓰세요.</small></span><button class="switch" role="switch" aria-checked="${setting('requireMedia')}" data-act="toggle-set" data-key="requireMedia" aria-label="인증샷·문제 칸에 사진 필수"></button></div>`;
+      <div class="setting field row"><span class="label">문제 칸에 사진 필수<small>끄면 사진 없이도 문제 칸을 채울 수 있어요. 팀 인증샷은 항상 사진이 필요해요.</small></span><button class="switch" role="switch" aria-checked="${setting('requireMedia')}" data-act="toggle-set" data-key="requireMedia" aria-label="문제 칸에 사진 필수"></button></div>`;
   }
   return h;
 }
@@ -821,12 +818,12 @@ function openProof(t, i, kind) {
   if (!KIND[kind] || (kind === 'photo') !== (i === CENTER)) return;
   pf = { t, i, kind, edit: !!c, media: (c && c.media || []).map(m => Object.assign({}, m)), by: new Set(c && c.by || []), mission: c && c.missionId || '', vs: c && c.vs || 0, busy: false };
   const members = teamMembers(t), req = setting('requireMedia');
-  const mediaField = (label, optional) => `<div class="field"><span class="label">${label}${optional ? '<small>없어도 돼요</small>' : ''}</span><div class="mgrid" id="pf-media"></div><p class="hint">최대 ${MAX_MEDIA}개 · 영상은 720p로 줄여서 올라가요</p></div>`;
+  const mediaField = (label, optional) => `<div class="field"><span class="label">${label}<small>${optional ? '없어도 돼요' : '꼭 올려야 해요'}</small></span><div class="mgrid" id="pf-media"></div><p class="hint">사진 최대 ${MAX_MEDIA}장</p></div>`;
   const memo = `<div class="field"><label for="pf-desc">한마디 (선택)</label><textarea class="inp" id="pf-desc" rows="2" maxlength="300" placeholder="남기고 싶은 말">${esc(c && c.desc || '')}</textarea></div>`;
   let head, body;
   if (kind === 'photo') {
     head = '팀 인증샷';
-    body = `<p class="hint">조원들이 함께 찍은 사진으로 가운데 칸을 채워요.</p>` + mediaField('팀 인증샷', !req) + memo;
+    body = `<p class="hint">조원들이 함께 찍은 사진으로 가운데 칸을 채워요.</p>` + mediaField('팀 인증샷', false) + memo;
   } else if (kind === 'problem') {
     const solved = solvedBy(cells, i), lim = setting('perPerson');
     head = '문제 완등';
@@ -844,7 +841,7 @@ function openProof(t, i, kind) {
       <div class="field"><span class="label">상대 조</span><div class="seg six" id="pf-vs">${Array.from({ length: TEAMS }, (_, k) => k + 1).filter(v => v !== t).map(v => `<button type="button" data-act="pf-vs" data-v="${v}" aria-pressed="${pf.vs === v}">${v}조</button>`).join('')}</div></div>
       <div class="field"><span class="label">누가 나갔나요?<small>여러 명을 고를 수 있어요</small></span>
         <div class="chips" id="pf-who">${members.length ? members.map(m => `<button type="button" class="chip" data-act="pf-who" data-id="${m.id}" aria-pressed="${pf.by.has(m.id)}">${esc(m.name)}</button>`).join('') : '<p class="hint">이 조에 등록된 조원이 없어요.</p>'}</div></div>`
-      + mediaField('사진 · 영상', true) + memo;
+      + mediaField('사진', true) + memo;
   }
   openSheet(`<form id="proof-form" class="tc${t}" novalidate>
     <h2>${pf.edit ? head + ' 수정' : head}</h2><p class="sheet-sub">${t}조 · ${cellName(i)}</p>
@@ -856,21 +853,17 @@ function openProof(t, i, kind) {
 }
 function drawProofMedia() {
   const box = document.getElementById('pf-media'); if (!box) return;
-  box.innerHTML = pf.media.map((m, k) => {
-    const inner = m.url ? (m.t === 'video' ? `<video src="${esc(m.url)}" muted playsinline preload="metadata"></video>` : `<img src="${esc(m.url)}" alt="">`) : mediaTag(m, true);
-    return `<div class="mthumb">${inner}${m.t === 'video' ? '<span class="vbadge">영상</span>' : ''}<button type="button" data-act="pf-rm" data-k="${k}" aria-label="삭제">×</button></div>`;
-  }).join('') + (pf.media.length < MAX_MEDIA ? `<label class="madd"><b>+</b>추가<input type="file" id="pf-file" accept="image/*,video/*" multiple></label>` : '');
+  box.innerHTML = pf.media.map((m, k) => `<div class="mthumb">${m.url ? `<img src="${esc(m.url)}" alt="">` : mediaTag(m, true)}<button type="button" data-act="pf-rm" data-k="${k}" aria-label="삭제">×</button></div>`).join('')
+    + (pf.media.length < MAX_MEDIA ? `<label class="madd"><b>+</b>사진<input type="file" id="pf-file" accept="image/*" multiple></label>` : '');
   hydrate(box);
 }
 function addProofFiles(files) {
   const err = document.getElementById('pf-err'); err.hidden = true;
   for (const f of files) {
-    if (pf.media.length >= MAX_MEDIA) { showErr(err, `사진·영상은 ${MAX_MEDIA}개까지 올릴 수 있어요.`); break; }
-    const isV = f.type.startsWith('video/'), isI = f.type.startsWith('image/');
-    if (!isV && !isI) { showErr(err, '사진이나 영상 파일만 올릴 수 있어요.'); continue; }
-    /* 영상 크기는 720p로 바꾼 뒤에 잰다 (submitProof). 여기서는 자리가 아예 없을 때만 막는다. */
-    if (isV && usedBytes() >= STORAGE_BUDGET_MB * 1048576) { showErr(err, '영상 저장 공간이 거의 찼어요. 이 미션은 사진으로 인증해주세요.'); continue; }
-    pf.media.push({ file: f, t: isV ? 'video' : 'image', url: URL.createObjectURL(f) + (isV ? '#t=0.1' : '') });
+    if (pf.media.length >= MAX_MEDIA) { showErr(err, `사진은 ${MAX_MEDIA}장까지 올릴 수 있어요.`); break; }
+    if (!f.type.startsWith('image/')) { showErr(err, '사진만 올릴 수 있어요. 영상은 올릴 수 없어요.'); continue; }
+    if (usedBytes() >= STORAGE_BUDGET_MB * 1048576) { showErr(err, '저장 공간이 거의 찼어요. 운영진에게 알려주세요.'); continue; }
+    pf.media.push({ file: f, t: 'image', url: URL.createObjectURL(f) });
   }
   drawProofMedia();
 }
@@ -886,71 +879,18 @@ async function shrink(file) {
     return b && b.size < file.size ? b : file;
   } catch (e) { return file; }
 }
-let mbLib = null;
-function loadMb() { return mbLib || (mbLib = import(MEDIABUNNY).catch(e => { mbLib = null; throw e; })); }
-/* 영상을 짧은 변 720px · H.264 mp4로 바꾼다. 소리는 그대로 옮긴다. 이 기기에서 못 바꾸면 에러를 던진다. */
-async function to720(file, onProgress) {
-  const MB = await loadMb();
-  const input = new MB.Input({ formats: MB.ALL_FORMATS, source: new MB.BlobSource(file) });
-  const vt = await input.getPrimaryVideoTrack();
-  if (!vt) throw new Error('no video track');
-  const w = await vt.getDisplayWidth(), h = await vt.getDisplayHeight(), dur = await input.computeDuration();
-  /* 이미 충분히 작은 mp4는 다시 인코딩하지 않는다 (화질만 깎이므로). */
-  if (file.type === 'video/mp4' && (await vt.getCodec()) === 'avc' && Math.min(w, h) <= VIDEO_SHORT && dur > 0 && file.size * 8 / dur <= VIDEO_BPS * 1.25) return file;
-  const k = Math.min(1, VIDEO_SHORT / Math.min(w, h)), even = n => Math.max(2, Math.round(n * k / 2) * 2);
-  let fps = 0, at = null;
-  try { fps = (await vt.computePacketStats(60)).averagePacketRate; } catch (e) {}
-  /* 소리는 한 줄만, 되도록 AAC인 것을 고른다 (어느 폰에서나 재생되도록). */
-  const ats = await input.getAudioTracks();
-  for (const t of ats) { if ((await t.getCodec()) === 'aac') { at = t; break; } }
-  at = at || ats[0] || null;
-  const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new MB.BufferTarget() });
-  const conv = await MB.Conversion.init({
-    input, output,
-    video: tr => {
-      if (tr.id !== vt.id) return { discard: true };
-      const o = { codec: 'avc', width: even(w), height: even(h), fit: 'fill', quality: new MB.Quality({ bitrate: VIDEO_BPS }), forceTranscode: true };
-      if (fps > 33) o.frameRate = 30;
-      return o;
-    },
-    audio: tr => (at && tr.id === at.id ? { codec: 'aac' } : { discard: true })
-  });
-  if (!conv.isValid || !conv.utilizedTracks.some(t => t.type === 'video')) throw new Error('cannot convert on this device');
-  /* 25초 동안 진행이 없으면 멈춘 것으로 보고 그만둔다. */
-  let last = Date.now();
-  conv.onProgress = p => { last = Date.now(); if (onProgress) onProgress(p); };
-  const dog = setInterval(() => { if (Date.now() - last > 25000) conv.cancel().catch(() => {}); }, 2000);
-  try { await conv.execute(); } finally { clearInterval(dog); }
-  const buf = output.target.buffer;
-  if (!buf || !buf.byteLength) throw new Error('empty output');
-  return new Blob([buf], { type: 'video/mp4' });
-}
-/* 빙고판에는 작은 미리보기 그림만 보여 준다. 영상은 눌러서 재생할 때만 내려받는다. */
-async function makeThumb(file, isVideo) {
-  let url;
+/* 빙고판에는 작은 미리보기 그림만 보여 준다. */
+async function makeThumb(file) {
   try {
-    let src, w, h;
-    if (isVideo) {
-      const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto';
-      url = URL.createObjectURL(file); v.src = url;
-      await new Promise((res, rej) => {
-        const to = setTimeout(() => rej(new Error('timeout')), 7000), ok = () => { clearTimeout(to); res(); };
-        v.onloadeddata = ok; v.oncanplay = ok; v.onerror = () => { clearTimeout(to); rej(new Error('video')); };
-        v.load(); const p = v.play(); if (p && p.catch) p.catch(() => {});
-      });
-      v.pause();
-      await new Promise(res => { const to = setTimeout(res, 1500); v.onseeked = () => { clearTimeout(to); res(); }; try { v.currentTime = Math.min(0.3, (v.duration || 1) / 2); } catch (e) { clearTimeout(to); res(); } });
-      src = v; w = v.videoWidth; h = v.videoHeight;
-    } else { src = await createImageBitmap(file); w = src.width; h = src.height; }
+    const src = await createImageBitmap(file), w = src.width, h = src.height;
     if (!w || !h) return null;
     const k = Math.min(1, 400 / Math.min(w, h)), cv = document.createElement('canvas');
     cv.width = Math.round(w * k); cv.height = Math.round(h * k);
     cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
     return await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.72));
   } catch (e) { return null; }
-  finally { if (url) URL.revokeObjectURL(url); }
 }
-const extOf = b => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm' }[b.type] || 'bin');
+const extOf = b => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }[b.type] || 'bin');
 
 async function submitProof() {
   if (!pf || pf.busy) return;
@@ -979,26 +919,14 @@ async function submitProof() {
     if (img) extra.mImg = img.th ? { p: img.p, th: img.th } : { p: img.p };
     title = extra.mTitle;
   }
-  if (kind !== 'duel' && setting('requireMedia') && !pf.media.length) return showErr(err, kind === 'photo' ? '팀 인증샷을 올려주세요.' : '탑 홀드를 찍은 사진을 올려주세요.');
+  if (kind === 'photo' && !pf.media.length) return showErr(err, '팀 인증샷 사진을 한 장 이상 올려주세요.');
+  if (kind === 'problem' && setting('requireMedia') && !pf.media.length) return showErr(err, '탑 홀드를 찍은 사진을 올려주세요.');
   pf.busy = true; sheetLock = true; btn.disabled = true;
   const stop = msg => { pf.busy = false; sheetLock = false; btn.disabled = false; btn.textContent = pf.edit ? '수정 저장' : '칸 채우기'; showErr(err, msg); };
-  /* 1) 올리기 전에 사진은 줄이고 영상은 720p로 바꾼다. 다시 눌렀을 때 또 바꾸지 않게 결과를 붙여 둔다. */
+  /* 1) 올리기 전에 사진을 줄인다. 다시 눌렀을 때 또 줄이지 않게 결과를 붙여 둔다. */
   const fresh = pf.media.filter(m => m.file);
-  let nv = 0, add = 0;
-  const videos = fresh.filter(m => m.t === 'video').length;
-  for (const m of fresh) {
-    if (m.t !== 'video') { if (!m.blob) m.blob = await shrink(m.file); continue; }
-    nv++;
-    if (!m.blob) {
-      const tag = videos > 1 ? `영상 줄이는 중 ${nv}/${videos}` : '영상 줄이는 중';
-      btn.textContent = tag + '…';
-      try { m.blob = await to720(m.file, p => { btn.textContent = `${tag} ${Math.round(p * 100)}%`; }); }
-      catch (e) { console.warn('to720', e); m.blob = m.file; m.raw = true; }
-    }
-    if (m.blob.size > MAX_VIDEO_MB * 1048576) return stop(m.raw ? '이 폰에서는 영상을 줄이지 못했고 원본은 너무 커요. 더 짧게 찍어서 다시 올려주세요.' : '영상이 너무 길어요. 더 짧은 영상으로 올려주세요.');
-    add += m.blob.size;
-  }
-  if (add && usedBytes() + add > STORAGE_BUDGET_MB * 1048576) return stop('영상 저장 공간이 거의 찼어요. 사진으로 올려주세요.');
+  for (const m of fresh) if (!m.blob) m.blob = await shrink(m.file);
+  if (fresh.length && usedBytes() + fresh.reduce((a, m) => a + m.blob.size, 0) > STORAGE_BUDGET_MB * 1048576) return stop('저장 공간이 거의 찼어요. 운영진에게 알려주세요.');
   /* 2) 올리기 */
   const media = []; let k = 0;
   try {
@@ -1009,7 +937,7 @@ async function submitProof() {
       const path = `${stem}.${extOf(blob)}`;
       await adapter.upload(path, blob);
       const item = { p: path, t: m.t, s: blob.size };
-      const th = await makeThumb(m.t === 'video' ? blob : m.file, m.t === 'video');
+      const th = await makeThumb(m.file);
       if (th) { try { await adapter.upload(`${stem}-t.jpg`, th); item.th = `${stem}-t.jpg`; item.s += th.size; } catch (e) {} }
       media.push(item);
     }
@@ -1155,7 +1083,7 @@ async function saveMission(form) {
       const blob = await shrink(qf.file), stem = `missions/${id}/${Date.now().toString(36)}-${uid('')}`, path = `${stem}.${extOf(blob)}`;
       await adapter.upload(path, blob);
       img = { p: path, s: blob.size };
-      const th = await makeThumb(qf.file, false);
+      const th = await makeThumb(qf.file);
       if (th) { try { await adapter.upload(`${stem}-t.jpg`, th); img.th = `${stem}-t.jpg`; img.s += th.size; } catch (e) {} }
     } catch (e) {
       console.error(e); qf.busy = false; sheetLock = false; btn.disabled = false; btn.textContent = '저장';
@@ -1245,7 +1173,92 @@ document.addEventListener('submit', e => {
   else if (f.id === 'bulk-form') saveBulk();
   else if (f.id === 'mission-form') saveMission(f);
 });
-window.addEventListener('hashchange', () => { if (fxEl.querySelector('.zoom')) closeFx(); if (!sheetLock) closeSheet(); render(); });
+/* ── 칸 자리 바꾸기 ─────────────────────────
+   채운 칸을 길게 눌러서(마우스는 그냥 끌어서) 다른 칸에 놓으면 두 칸의 내용이 서로 바뀐다. 가운데 칸은 움직이지 않는다. */
+let drag = null, clickBlockUntil = 0;
+const dragCell = el => { const c = el && el.closest ? el.closest('.board .cell') : null; return c && !c.classList.contains('ghost') ? c : null; };
+function dragArm(cell, x, y, touch) {
+  const t = +cell.dataset.t, i = +cell.dataset.i;
+  dragEnd(false);
+  if (!cell.classList.contains('done') || i === CENTER || !canEdit(t) || !sheetEl.hidden || !fxEl.hidden) return;
+  drag = { t, i, cell, sx: x, sy: y, x, y, on: false, over: null, ghost: null, timer: null, stale: false };
+  if (touch) drag.timer = setTimeout(() => { if (drag) dragStart(drag.x, drag.y); }, 320);
+}
+function dragStart(x, y) {
+  if (!drag || drag.on) return;
+  if (!drag.cell.isConnected) return dragEnd(false);
+  const r = drag.cell.getBoundingClientRect(), g = drag.cell.cloneNode(true);
+  g.classList.remove('pop', 'line'); g.classList.add('ghost'); g.removeAttribute('href');
+  g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+  drag.dx = Math.min(Math.max(x - r.left, 0), r.width); drag.dy = Math.min(Math.max(y - r.top, 0), r.height);
+  drag.cell.parentElement.appendChild(g);
+  drag.ghost = g; drag.on = true;
+  drag.cell.classList.add('dragging'); document.body.classList.add('dragging');
+  if (navigator.vibrate) { try { navigator.vibrate(12); } catch (e) {} }
+  dragMove(x, y);
+}
+function dragMove(x, y) {
+  if (!drag || !drag.on) return;
+  drag.ghost.style.left = (x - drag.dx) + 'px'; drag.ghost.style.top = (y - drag.dy) + 'px';
+  const el = dragCell(document.elementFromPoint(x, y));
+  const ok = el && el !== drag.cell && +el.dataset.t === drag.t && +el.dataset.i !== CENTER ? el : null;
+  if (ok !== drag.over) { if (drag.over) drag.over.classList.remove('drop'); if (ok) ok.classList.add('drop'); drag.over = ok; }
+}
+function dragEnd(commit) {
+  if (!drag) return;
+  const d = drag; drag = null; clearTimeout(d.timer);
+  if (d.ghost) d.ghost.remove();
+  if (d.over) d.over.classList.remove('drop');
+  d.cell.classList.remove('dragging'); document.body.classList.remove('dragging');
+  if (d.on) clickBlockUntil = Date.now() + 450;
+  if (commit && d.on && d.over) swapCells(d.t, d.i, +d.over.dataset.i);
+  else if (d.stale) render();
+}
+async function swapCells(t, a, b) {
+  if (a === b || a === CENTER || b === CENTER || !canEdit(t)) return render();
+  const cells = teamCells(t), ca = cells[a], cb = cells[b];
+  if (!ca) return render();
+  const before = wonLines(cells).length, ida = t + '-' + a, idb = t + '-' + b;
+  if (!cb && S.cells[idb]) dropMedia(S.cells[idb]);   /* 예전 방식 칸이 그 자리에 남아 있으면 치운다 */
+  popCell = idb;
+  const ok = await put('cells', idb, Object.assign({}, ca, { idx: b }), true)
+    && (cb ? await put('cells', ida, Object.assign({}, cb, { idx: a }), true) : await del('cells', ida));
+  render();
+  if (!ok) return;
+  const after = wonLines(teamCells(t)).length;
+  if (after > before) celebrate(t, after, false);
+  else toast('자리를 바꿨어요.');
+}
+app.addEventListener('touchstart', e => {
+  if (e.touches.length !== 1) return dragEnd(false);
+  const c = dragCell(e.target);
+  if (c) dragArm(c, e.touches[0].clientX, e.touches[0].clientY, true);
+}, { passive: true });
+app.addEventListener('touchmove', e => {
+  if (!drag) return;
+  const p = e.touches[0];
+  if (drag.on) { e.preventDefault(); dragMove(p.clientX, p.clientY); }
+  else if (Math.hypot(p.clientX - drag.sx, p.clientY - drag.sy) > 10) dragEnd(false);   /* 끌기가 아니라 스크롤 */
+  else { drag.x = p.clientX; drag.y = p.clientY; }
+}, { passive: false });
+app.addEventListener('touchend', e => { if (drag && drag.on && e.cancelable) e.preventDefault(); dragEnd(true); });
+app.addEventListener('touchcancel', () => dragEnd(false));
+app.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'mouse' || e.button !== 0) return;
+  const c = dragCell(e.target);
+  if (c) dragArm(c, e.clientX, e.clientY, false);
+});
+window.addEventListener('pointermove', e => {
+  if (!drag || e.pointerType !== 'mouse') return;
+  if (drag.on) dragMove(e.clientX, e.clientY);
+  else if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) dragStart(e.clientX, e.clientY);
+});
+window.addEventListener('pointerup', e => { if (drag && e.pointerType === 'mouse') dragEnd(true); });
+app.addEventListener('dragstart', e => { if (dragCell(e.target)) e.preventDefault(); });
+app.addEventListener('contextmenu', e => { const c = dragCell(e.target); if (c && c.classList.contains('done') && canEdit(+c.dataset.t)) e.preventDefault(); });
+document.addEventListener('click', e => { if (Date.now() < clickBlockUntil && dragCell(e.target)) { e.preventDefault(); e.stopPropagation(); } }, true);
+
+window.addEventListener('hashchange', () => { dragEnd(false); if (fxEl.querySelector('.zoom')) closeFx(); if (!sheetLock) closeSheet(); render(); });
 
 boot();
 </script>
