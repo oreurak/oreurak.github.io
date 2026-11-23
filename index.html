@@ -267,6 +267,21 @@ textarea.inp{resize:vertical;line-height:1.5}
 .result h3{font-size:22px;line-height:1.3;word-break:keep-all}
 .result p{font-size:14.5px;white-space:pre-wrap;word-break:keep-all}
 
+/* ── 미션 사진 ─────────────────────────── */
+.mpic{display:block;position:relative;width:100%;padding:0;border-radius:12px;overflow:hidden;background:#000;align-self:stretch}
+.mpic img{display:block;width:100%;min-height:120px;max-height:52dvh;object-fit:contain}
+.mpic span{position:absolute;right:8px;bottom:8px;font-size:11.5px;font-weight:700;background:rgba(23,26,33,.8);color:#fff;border-radius:6px;padding:3px 8px}
+.qrow.pic{grid-template-columns:34px 1fr 46px auto}
+.qth{display:block;width:46px;height:46px;padding:0;border-radius:8px;overflow:hidden;background:#000}
+.qth img{display:block;width:100%;height:100%;object-fit:cover}
+#fx .fx.zoom{display:flex;flex-direction:column;align-items:stretch;padding:0;background:#0B0C10}
+.zoom-pan{flex:1;min-height:0;overflow:auto;display:grid;place-items:center;-webkit-overflow-scrolling:touch}
+.zoom-pan img{display:block;max-width:100%;max-height:calc(100dvh - 76px)}
+.zoom-pan.big{place-items:start}
+.zoom-pan.big img{max-width:none;max-height:none;width:240%}
+.zoom-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));font-size:13px;color:rgba(255,255,255,.72)}
+.zoom-bar .btn{width:auto;background:#fff;color:var(--ink)}
+
 /* ── 축하 / 조 발표 ─────────────────────────── */
 #fx .fx{position:fixed;inset:0;z-index:60;background:var(--ink);color:#fff;display:grid;place-items:center;padding:24px;animation:fade .25s}
 #fx canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -656,7 +671,27 @@ function hydrate(root) {
   root.querySelectorAll('[data-m]:not([src])').forEach(async el => { try { const u = await get(el.dataset.m); if (u && el.isConnected) el.src = u; } catch (e) {} });
   root.querySelectorAll('[data-poster]:not([poster])').forEach(async el => { try { const u = await get(el.dataset.poster); if (u && el.isConnected) el.poster = u; } catch (e) {} });
 }
-const usedBytes = () => Object.values(S.cells).reduce((a, c) => a + (c.media || []).reduce((x, m) => x + (m.s || 0), 0), 0);
+const usedBytes = () => Object.values(S.cells).reduce((a, c) => a + (c.media || []).reduce((x, m) => x + (m.s || 0), 0), 0)
+  + Object.values(S.missions).reduce((a, m) => a + (m.img && m.img.s || 0), 0);
+
+/* 미션 사진. 미션이 남아 있으면 지금 사진을, 미션이 지워졌으면 뽑을 때 칸에 붙여 둔 사진을 쓴다. */
+function missionImg(c) { const m = S.missions[c.missionId]; return m ? (m.img || null) : (c.mImg || null); }
+const lazyImg = (p, alt) => { const u = urlCache[p] || ''; return `<img data-m="${esc(p)}"${u ? ` src="${esc(u)}"` : ''} alt="${alt || ''}">`; };
+function picTag(img) {
+  return img ? `<button type="button" class="mpic" data-act="zoom" data-p="${esc(img.p)}" aria-label="미션 사진 크게 보기">${lazyImg(img.p, '미션 사진')}<span>눌러서 크게</span></button>` : '';
+}
+function qthumb(m, zoom) {
+  if (!m.img) return '';
+  const im = lazyImg(m.img.th || m.img.p);
+  return zoom ? `<button type="button" class="qth" data-act="zoom" data-p="${esc(m.img.p)}" aria-label="미션 사진 크게 보기">${im}</button>` : `<span class="qth">${im}</span>`;
+}
+function openZoom(p) {
+  fxEl.innerHTML = `<div class="fx zoom"><div class="zoom-pan" data-act="zoom-toggle">${lazyImg(p, '미션 사진')}</div>
+    <div class="zoom-bar"><span>사진을 누르면 확대돼요</span><button class="btn sm" data-act="fx-close">닫기</button></div></div>`;
+  fxEl.hidden = false; document.body.classList.add('noscroll'); hydrate(fxEl);
+}
+/* 칸에 붙여 둔 사진으로 아직 쓰이고 있으면 파일은 남겨 둔다. */
+function dropMissionImg(img) { if (img && !Object.values(S.cells).some(c => c.mImg && c.mImg.p === img.p)) rmFiles(img); }
 
 function cellHTML(t, i, c, openable) {
   if (!c) return `<button class="cell locked${openable ? ' openable' : ''}" data-act="${openable ? 'spin' : 'locked'}" data-t="${t}" data-i="${i}" aria-label="${i + 1}번 칸, ${openable ? '눌러서 미션 뽑기' : '잠김'}"><span class="hold h${i % 8}"><b>${i + 1}</b></span></button>`;
@@ -697,7 +732,7 @@ function teamView(t) {
 function missionRows(list, state) {
   return list.map(m => {
     const s = state && state[m.id];
-    return `<div class="qrow${s ? ' got' : ''}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span>${s ? `<em class="tag${s === 'now' ? ' now' : ''}">${s === 'now' ? '도전 중' : '완등'}</em>` : '<em></em>'}</div>`;
+    return `<div class="qrow${s ? ' got' : ''}${m.img ? ' pic' : ''}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span>${qthumb(m, true)}${s ? `<em class="tag${s === 'now' ? ' now' : ''}">${s === 'now' ? '도전 중' : '완등'}</em>` : '<em></em>'}</div>`;
   }).join('');
 }
 function openMissionList(t) {
@@ -719,7 +754,7 @@ function cellView(t, i) {
   }
   h += `<section class="mission tc${t}">
     <div class="mission-top"><span class="tape">${t}조 · ${i + 1}번 칸</span><span class="state">${c.done ? '완등' : '도전 중'}</span></div>
-    <span class="no">No.${c.no}</span><h1>${esc(c.mTitle)}</h1>${c.mDesc ? `<p>${esc(c.mDesc)}</p>` : ''}</section>`;
+    <span class="no">No.${c.no}</span><h1>${esc(c.mTitle)}</h1>${c.mDesc ? `<p>${esc(c.mDesc)}</p>` : ''}${picTag(missionImg(c))}</section>`;
   if (!c.done) {
     h += `<div class="cta tc${t}">` + (can
       ? `<button class="btn team" data-act="proof" data-t="${t}" data-i="${i}">완등 인증하기</button><p>사진이나 영상을 올리고 누가 깼는지 표시하면 다음 칸을 열 수 있어요.</p>`
@@ -760,7 +795,7 @@ function adminView() {
     const all = missionList(), on = all.filter(m => m.active !== false).length;
     h += `<div class="bar"><p><b>미션 ${all.length}개</b> · 룰렛에 ${on}개</p><div><button class="btn sm" data-act="q-edit">미션 추가</button></div></div>`;
     if (on < CELLS) h += `<p class="warn">한 조가 16칸을 채우려면 룰렛에 미션이 16개 이상 있어야 해요. 지금은 ${on}개예요.</p>`;
-    h += `<div class="group">` + (all.length ? all.map(m => `<button class="qrow${m.active === false ? ' off' : ''}" data-act="q-edit" data-id="${m.id}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span><em>${m.active === false ? '꺼짐' : ''}</em></button>`).join('') : '<p class="empty" style="padding-top:14px">미션이 없어요. 추가해주세요.</p>') + `</div>`;
+    h += `<div class="group">` + (all.length ? all.map(m => `<button class="qrow${m.active === false ? ' off' : ''}${m.img ? ' pic' : ''}" data-act="q-edit" data-id="${m.id}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span>${qthumb(m, false)}<em>${m.active === false ? '꺼짐' : ''}</em></button>`).join('') : '<p class="empty" style="padding-top:14px">미션이 없어요. 추가해주세요.</p>') + `</div>`;
   } else {
     let total = 0, rows = '';
     for (let t = 1; t <= TEAMS; t++) {
@@ -780,6 +815,7 @@ function adminView() {
 function openSheet(html) {
   sheetEl.innerHTML = `<div class="backdrop" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true">${html}</div>`;
   sheetEl.hidden = false; sheetLock = false; document.body.classList.add('noscroll');
+  hydrate(sheetEl);
 }
 function closeSheet() { sheetEl.hidden = true; sheetEl.innerHTML = ''; sheetLock = false; document.body.classList.remove('noscroll'); }
 
@@ -827,7 +863,9 @@ async function spinGo() {
   sheetLock = true; document.getElementById('spin-btn').disabled = true;
   const sl = document.getElementById('spin-list'); if (sl) sl.remove();
   holdCell = id;
-  const saved = await put('cells', id, { team: t, idx, missionId: m.id, no: m.no, mTitle: m.title, mDesc: m.desc || '', done: false, drawnBy: meId, drawnAt: Date.now() });
+  const cell = { team: t, idx, missionId: m.id, no: m.no, mTitle: m.title, mDesc: m.desc || '', done: false, drawnBy: meId, drawnAt: Date.now() };
+  if (m.img) cell.mImg = m.img.th ? { p: m.img.p, th: m.img.th } : { p: m.img.p };
+  const saved = await put('cells', id, cell);
   if (!saved) { holdCell = null; closeSheet(); render(); return; }
   const cv = document.getElementById('wheel'), segDeg = 360 / list.length;
   const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -838,7 +876,8 @@ async function spinGo() {
   setTimeout(() => {
     holdCell = null; popCell = id; sheetLock = false; render();
     const out = document.getElementById('spin-out'); if (!out) return;
-    out.innerHTML = `<div class="result"><span class="no">No.${m.no}</span><h3>${esc(m.title)}</h3>${m.desc ? `<p>${esc(m.desc)}</p>` : ''}</div>`;
+    out.innerHTML = `<div class="result"><span class="no">No.${m.no}</span><h3>${esc(m.title)}</h3>${m.desc ? `<p>${esc(m.desc)}</p>` : ''}${picTag(m.img)}</div>`;
+    hydrate(out);
     const b = document.getElementById('spin-btn'); b.disabled = false; b.textContent = `${idx + 1}번 칸에 붙었어요 · 확인`; b.dataset.act = 'sheet-close'; b.classList.remove('team');
     out.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, dur * 1000 + 250);
@@ -1105,27 +1144,60 @@ async function saveBulk() {
   }
   render(); toast(`${add}명 추가${moved ? `, ${moved}명 조 변경` : ''}했어요.`);
 }
+let qf = null;
+function drawMissionMedia() {
+  const box = document.getElementById('qf-media'); if (!box || !qf) return;
+  const inner = qf.file ? `<img src="${esc(qf.url)}" alt="">` : qf.img ? lazyImg(qf.img.th || qf.img.p) : '';
+  box.innerHTML = inner ? `<div class="mthumb">${inner}<button type="button" data-act="qf-rm" aria-label="사진 삭제">×</button></div>`
+    : `<label class="madd"><b>+</b>사진<input type="file" id="qf-file" accept="image/*"></label>`;
+  hydrate(box);
+}
 function openMission(id) {
   const m = id ? S.missions[id] : null;
+  qf = { img: m && m.img ? m.img : null, file: null, url: '', busy: false };
   openSheet(`<form id="mission-form" data-id="${id || ''}">
     <h2>${m ? 'No.' + m.no + ' 미션 수정' : '미션 추가'}</h2>
     <div class="field"><label for="qf-title">미션 이름</label><input class="inp" id="qf-title" maxlength="30" required value="${esc(m ? m.title : '')}" placeholder="예: 다이노 성공"></div>
     <div class="field"><label for="qf-desc">설명</label><textarea class="inp" id="qf-desc" rows="3" maxlength="200" placeholder="성공 조건과 인증 방법">${esc(m ? m.desc : '')}</textarea></div>
+    <div class="field"><span class="label">미션 사진<small>"사진과 같은 홀드 찾기"처럼 사진을 보고 푸는 미션에 넣어요. 없어도 돼요.</small></span><div class="mgrid" id="qf-media"></div></div>
     <div class="field row"><span class="label">룰렛에 넣기<small>끄면 새로 뽑히지 않아요. 이미 뽑은 조의 칸은 그대로예요.</small></span><button type="button" class="switch" id="qf-on" role="switch" aria-checked="${!m || m.active !== false}" data-act="switch" aria-label="룰렛에 넣기"></button></div>
     <p class="err" id="qf-err" hidden></p>
     <button class="btn" type="submit">저장</button>
     ${m ? `<button class="btn danger" type="button" data-act="q-del" data-id="${id}">미션 삭제</button>` : ''}
   </form>`);
+  drawMissionMedia();
 }
 async function saveMission(form) {
+  if (qf && qf.busy) return;
   const id = form.dataset.id || uid('q-'), old = S.missions[id], err = document.getElementById('qf-err');
   const title = document.getElementById('qf-title').value.trim(), desc = document.getElementById('qf-desc').value.trim();
+  err.hidden = true;
   if (!title) return showErr(err, '미션 이름을 적어주세요.');
   const no = old ? old.no : missionList().reduce((a, m) => Math.max(a, m.no || 0), 0) + 1;
   /* 시트를 닫으면 입력 칸이 사라지므로 값은 닫기 전에 다 읽어 둔다. */
   const active = document.getElementById('qf-on').getAttribute('aria-checked') === 'true';
-  closeSheet();
-  if (await put('missions', id, { no, title, desc, active })) toast('저장했어요.');
+  let img = qf ? qf.img : (old && old.img) || null;
+  if (qf && qf.file) {
+    const btn = form.querySelector('button[type="submit"]');
+    qf.busy = true; sheetLock = true; btn.disabled = true; btn.textContent = '사진 올리는 중…';
+    try {
+      const blob = await shrink(qf.file), stem = `missions/${id}/${Date.now().toString(36)}-${uid('')}`, path = `${stem}.${extOf(blob)}`;
+      await adapter.upload(path, blob);
+      img = { p: path, s: blob.size };
+      const th = await makeThumb(qf.file, false);
+      if (th) { try { await adapter.upload(`${stem}-t.jpg`, th); img.th = `${stem}-t.jpg`; img.s += th.size; } catch (e) {} }
+    } catch (e) {
+      console.error(e); qf.busy = false; sheetLock = false; btn.disabled = false; btn.textContent = '저장';
+      return showErr(err, '사진을 올리지 못했어요. 연결 상태를 확인하고 다시 눌러주세요.');
+    }
+  }
+  const data = { no, title, desc, active }; if (img) data.img = img;
+  if (qf && qf.url) URL.revokeObjectURL(qf.url);
+  qf = null; closeSheet();
+  if (await put('missions', id, data)) {
+    if (old && old.img && (!img || img.p !== old.img.p)) dropMissionImg(old.img);
+    toast('저장했어요.');
+  }
 }
 
 function armed(btn, label) {
@@ -1144,8 +1216,11 @@ document.addEventListener('click', async e => {
   switch (d.act) {
     case 'retry': boot(); break;
     case 'logout': meId = null; try { localStorage.removeItem('oreurak:me'); } catch (x) {} location.hash = ''; render(); break;
-    case 'sheet-close': if (!sheetLock) { closeSheet(); pf = null; spinCtx = null; } break;
+    case 'sheet-close': if (!sheetLock) { closeSheet(); pf = null; spinCtx = null; qf = null; } break;
     case 'fx-close': closeFx(); break;
+    case 'zoom': e.preventDefault(); openZoom(d.p); break;
+    case 'zoom-toggle': { const big = el.classList.toggle('big'); if (big) { el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2; el.scrollTop = (el.scrollHeight - el.clientHeight) / 2; } break; }
+    case 'qf-rm': if (qf && !qf.busy) { if (qf.url) URL.revokeObjectURL(qf.url); qf.file = null; qf.url = ''; qf.img = null; drawMissionMedia(); } break;
     case 'spin': openRoulette(t, i); break;
     case 'spin-go': spinGo(); break;
     case 'mlist': openMissionList(t); break;
@@ -1153,21 +1228,30 @@ document.addEventListener('click', async e => {
     case 'proof': openProof(t, i); break;
     case 'pf-who': { const on = el.getAttribute('aria-pressed') !== 'true'; el.setAttribute('aria-pressed', on); on ? pf.by.add(d.id) : pf.by.delete(d.id); break; }
     case 'pf-rm': if (pf && !pf.busy) { pf.media.splice(+d.k, 1); drawProofMedia(); } break;
-    case 'unproof': if (armed(el, '한 번 더 누르면 인증이 취소돼요')) { const c = S.cells[t + '-' + i]; if (c) { dropMedia(c); await put('cells', t + '-' + i, { team: c.team, idx: c.idx, missionId: c.missionId, no: c.no, mTitle: c.mTitle, mDesc: c.mDesc, done: false, drawnBy: c.drawnBy, drawnAt: c.drawnAt }); toast('인증을 취소했어요.'); } } break;
+    case 'unproof': if (armed(el, '한 번 더 누르면 인증이 취소돼요')) { const c = S.cells[t + '-' + i]; if (c) { dropMedia(c); await put('cells', t + '-' + i, Object.assign({ team: c.team, idx: c.idx, missionId: c.missionId, no: c.no, mTitle: c.mTitle, mDesc: c.mDesc, done: false, drawnBy: c.drawnBy, drawnAt: c.drawnAt }, c.mImg ? { mImg: c.mImg } : {})); toast('인증을 취소했어요.'); } } break;
     case 'clearcell': if (armed(el, '한 번 더 누르면 칸이 비워져요')) { dropMedia(S.cells[t + '-' + i]); await del('cells', t + '-' + i); location.hash = 'team-' + t; toast('칸을 비웠어요.'); } break;
     case 'tab': adminTab = d.tab; render(); break;
     case 'm-edit': openMember(d.id); break;
     case 'm-del': if (armed(el, '한 번 더 누르면 삭제돼요')) { closeSheet(); await del('members', d.id); toast('삭제했어요.'); } break;
     case 'bulk': openBulk(); break;
     case 'q-edit': openMission(d.id); break;
-    case 'q-del': if (armed(el, '한 번 더 누르면 삭제돼요')) { closeSheet(); await del('missions', d.id); toast('삭제했어요.'); } break;
+    case 'q-del': if (armed(el, '한 번 더 누르면 삭제돼요')) { const gone = S.missions[d.id]; closeSheet(); qf = null; if (await del('missions', d.id)) { if (gone) dropMissionImg(gone.img); toast('삭제했어요.'); } } break;
     case 'pick': el.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); break;
     case 'switch': el.setAttribute('aria-checked', el.getAttribute('aria-checked') !== 'true'); break;
     case 'toggle-media': { const cur = S.settings.main || {}; await put('settings', 'main', Object.assign({}, cur, { requireMedia: cur.requireMedia === false })); break; }
     case 'reset-team': if (armed(el, '한 번 더')) { const ks = Object.keys(S.cells).filter(k => S.cells[k].team === t); for (const k of ks) { dropMedia(S.cells[k]); await del('cells', k); } toast(`${t}조 빙고판을 초기화했어요.`); } break;
   }
 });
-document.addEventListener('change', e => { if (e.target.id === 'pf-file' && pf) { addProofFiles([...e.target.files]); } });
+document.addEventListener('change', e => {
+  if (e.target.id === 'pf-file' && pf) addProofFiles([...e.target.files]);
+  else if (e.target.id === 'qf-file' && qf) {
+    const f = e.target.files[0], err = document.getElementById('qf-err'); err.hidden = true;
+    if (!f) return;
+    if (!f.type.startsWith('image/')) return showErr(err, '사진 파일만 올릴 수 있어요.');
+    if (qf.url) URL.revokeObjectURL(qf.url);
+    qf.file = f; qf.url = URL.createObjectURL(f); drawMissionMedia();
+  }
+});
 document.addEventListener('submit', e => {
   e.preventDefault();
   const f = e.target;
@@ -1183,7 +1267,7 @@ document.addEventListener('submit', e => {
   else if (f.id === 'bulk-form') saveBulk();
   else if (f.id === 'mission-form') saveMission(f);
 });
-window.addEventListener('hashchange', () => { if (!sheetLock) closeSheet(); render(); });
+window.addEventListener('hashchange', () => { if (fxEl.querySelector('.zoom')) closeFx(); if (!sheetLock) closeSheet(); render(); });
 
 boot();
 </script>
