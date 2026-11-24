@@ -202,7 +202,8 @@ textarea.inp{resize:vertical;line-height:1.5}
 .cell.done img,.cell.done video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .cell.done .ct{padding:0 4px;font-size:10px;font-weight:700;text-align:center;line-height:1.25;max-height:3.75em;overflow:hidden;word-break:keep-all;overflow-wrap:anywhere}
 .cell .kb{position:absolute;left:0;bottom:0;font-size:9.5px;font-weight:700;line-height:1.3;padding:1px 5px 2px;background:var(--ink);color:#fff;border-radius:0 5px 0 0}
-.cell.k-duel .ct{align-self:start;margin-top:6px;max-height:2.5em}
+.cell.k-duel .ct{max-height:2.5em;padding:0 9px}
+.cell .kb,.cell .pb{z-index:3}
 /* 빙고가 된 줄의 칸에는 테두리를 두른다 */
 .cell.line::after{content:"";position:absolute;inset:0;border:3px solid var(--ink);border-radius:inherit;pointer-events:none}
 .cell.pop{animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
@@ -263,7 +264,11 @@ textarea.inp{resize:vertical;line-height:1.5}
 .cell .pb .sw{margin:0;gap:2px}
 .cell .pb .sw i{width:8px;height:8px;box-shadow:0 0 0 1px rgba(255,255,255,.75)}
 .cell.k-problem .ct{align-self:start;margin-top:8px;max-height:2.5em}
-.cell .ring{position:absolute;inset:6%;z-index:2;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px var(--ink),inset 0 0 0 2px var(--ink);pointer-events:none}
+/* 동그라미: 분필로 한 번 휘갈긴 자국. 칸마다 방향을 조금씩 달리한다. */
+.ring{position:absolute;overflow:visible;pointer-events:none;fill:var(--ink)}
+.ring.v1{transform:scaleX(-1)}.ring.v2{transform:scaleY(-1)}.ring.v3{transform:scale(-1)}
+.cell .ring{left:4%;top:4%;width:92%;height:92%;z-index:2;fill:#fff;filter:drop-shadow(0 0 .7px rgba(23,26,33,.95)) drop-shadow(0 1px 1.5px rgba(23,26,33,.6))}
+.cell.k-problem .ring{left:5%;top:1%;width:90%;height:72%}   /* 아래쪽 색 표시 띠는 가리지 않는다 */
 .cell.callable{outline:2.5px dashed var(--ink);outline-offset:1.5px}
 .mini i.h{background:var(--ink)}
 .gbar{display:flex;flex-direction:column;gap:8px;background:var(--ink);color:#fff;border-radius:16px;padding:14px 16px}
@@ -333,12 +338,10 @@ select.inp{-webkit-appearance:auto;appearance:auto}
 .lc{position:relative;aspect-ratio:1;border-radius:4px;background:var(--wall);display:grid;place-items:center;overflow:hidden;font-style:normal;font-size:8.5px;font-weight:700;line-height:1;color:var(--ink-2)}
 .lc.f{background:#fff;box-shadow:inset 0 0 0 1px var(--line)}
 .lc.k{background:var(--c);color:var(--cf);box-shadow:none}
-.lc .sw{margin:0;gap:2px}
-.lc .sw i{width:9px;height:9px}
-.lc.hit::after{content:"";position:absolute;inset:5%;border-radius:50%;border:2px solid var(--ink)}
+.lc .ring{left:0;top:0;width:100%;height:100%}
+.lc.k .ring{fill:var(--cf)}
 .lc.line{background:var(--ink);color:#fff;box-shadow:none}
-.lc.line.hit::after{border-color:#fff}
-.lc.line .sw i{box-shadow:0 0 0 1px rgba(255,255,255,.8)}
+.lc.line .ring{fill:#fff}
 .lfoot{font-size:11.5px;color:var(--ink-2)}
 @media (min-width:720px){
   .live{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
@@ -346,9 +349,6 @@ select.inp{-webkit-appearance:auto;appearance:auto}
   .lhead .tape{font-size:17px}.lhead b{font-size:17px}.lhead em{font-size:12.5px}
   .lgrid{gap:5px}
   .lc{font-size:12px;border-radius:6px}
-  .lc .sw{gap:3px}
-  .lc .sw i{width:15px;height:15px}
-  .lc.hit::after{border-width:3px}
   .lfoot{font-size:13px}
 }
 
@@ -704,7 +704,7 @@ function route() {
   if (h === 'me') return { v: 'me' };
   if (h === 'raffle') return { v: 'raffle' };
   if (h === 'admin' && meObj().admin) return { v: 'admin' };
-  if (h === 'live' && meObj().admin) return { v: 'live' };
+  if (h === 'live') return { v: 'live' };
   return { v: 'home' };
 }
 
@@ -787,7 +787,7 @@ function gameBanner() {
   if (g.phase === 'fill') return '';
   const last = g.calls[g.calls.length - 1];
   const lastTxt = last ? `<p class="gb-last">방금 ${last.t}조가 부른 문제 · <b>${esc(last.name)}</b></p>` : '';
-  if (g.phase === 'done') return `<section class="gbar"><b>빙고가 끝났어요</b><p class="gb-last">아래 순위가 최종 결과예요. 추첨권 번호는 운영진이 뽑으면 볼 수 있어요.</p></section>`;
+  if (g.phase === 'done') return `<section class="gbar"><b>빙고가 끝났어요</b><p class="gb-last">조 순위가 확정됐어요. ${raffle() ? '추첨권 번호도 나왔어요. 위쪽 ‘내 정보’에서 내 번호를 확인하세요.' : '추첨권 번호는 운영진이 뽑으면 볼 수 있어요.'}</p></section>`;
   const tt = turnTeam(), cur = g.turn % g.order.length, fin = new Set(g.order.filter(t => finishAt(teamCells(t)) != null));
   return `<section class="gbar tc${tt}"><b>빙고 진행 중 · 지금 ${tt}조 차례</b>
     <div class="gb-order">${g.order.map((t, k) => `<span class="${k === cur ? 'on' : fin.has(t) ? 'fin' : ''}">${t}조${fin.has(t) ? ' 완성' : ''}</span>`).join('')}</div>${lastTxt}</section>`;
@@ -806,7 +806,8 @@ function homeView() {
   } else {
     h += `<div class="note">${m.admin ? '운영진 계정이에요. 조 배정 없이 모든 조의 빙고판을 관리할 수 있어요.' : '아직 조가 정해지지 않았어요. 운영진에게 말해주세요.'}</div>`;
   }
-  if (m.admin) h += `<a class="adminlink" href="#admin">운영진 페이지<span>참가자 · 문제 · 대결 · 빙고 진행</span></a><a class="adminlink soft" href="#live">전체 빙고판<span>모든 조 판을 실시간으로 보기</span></a>`;
+  if (m.admin) h += `<a class="adminlink" href="#admin">운영진 페이지<span>참가자 · 문제 · 대결 · 빙고 진행</span></a>`;
+  h += `<a class="adminlink soft" href="#live">전체 빙고판<span>모든 조 판을 한눈에 보기</span></a>`;
   h += `<a class="adminlink soft" href="#raffle">추첨권 번호<span>전체 명단 · 받은 번호 보기</span></a>`;
   h += `<section><h2 class="sec">조 순위</h2><p class="hint">${GOAL_LINES}줄을 먼저 완성한 조부터 순위가 정해져요. 그 전까지는 빙고 줄이 많은 조가 위예요.</p><div class="rows">`;
   for (const r of rank) {
@@ -849,6 +850,20 @@ function openZoom(p) {
 function dropMissionImg(img) { if (img && !Object.values(S.cells).some(c => c.mImg && c.mImg.p === img.p)) rmFiles(img); }
 
 const cellName = i => (i === CENTER ? '가운데 칸' : (i + 1) + '번 칸');
+/* 동그라미 모양: 한 바퀴를 조금 넘겨 끝이 겹치고, 굵기가 가늘게 시작해서 굵어졌다가 다시 가늘어지는 붓 자국 */
+const RING_D = (() => {
+  const n = 30, pts = [], c = Math.cos(-0.26), s = Math.sin(-0.26);
+  const at = (p, side) => {
+    const a = -2.25 + 7.15 * p, grow = 1 + 0.11 * p;
+    const w = 0.5 + 3.7 * Math.pow(Math.sin(Math.PI * Math.min(1, p * 1.07)), 0.7);
+    const x = Math.cos(a) * (38 * grow + side * w), y = Math.sin(a) * (32.5 * grow + side * w);
+    return (50 + x * c - y * s).toFixed(1) + ' ' + (50 + x * s + y * c).toFixed(1);
+  };
+  for (let k = 0; k <= n; k++) pts.push(at(k / n, 1));
+  for (let k = n; k >= 0; k--) pts.push(at(k / n, -1));
+  return 'M' + pts.join('L') + 'Z';
+})();
+const ringSVG = k => `<svg class="ring v${k % 4}" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="${RING_D}"/></svg>`;
 function cellHTML(t, i, c, can, inLine, callOn) {
   const mid = i === CENTER;
   if (!c) {
@@ -863,7 +878,7 @@ function cellHTML(t, i, c, can, inLine, callOn) {
   const inner = (m ? mediaTag(m, true) : `<span class="ct">${esc(text)}</span>`)
     + (c.kind === 'duel' ? '<span class="kb">대결</span>' : '')
     + (prob && hasProb(c) ? `<span class="pb">${SECTOR_SHORT[c.sector] || ''}${swatch(c)}</span>` : '')
-    + (hit ? '<span class="ring"></span>' : '');
+    + (hit ? ringSVG(i) : '');
   const cls = `cell done k-${c.kind}${hit ? ' hit' : ''}${inLine ? ' line' : ''}${pop}`, label = `${cellName(i)} ${KIND[c.kind]}: ${esc(prob ? cellProbName(c) : text)}${hit ? ', 동그라미' : ''}`;
   if (callOn && prob && !hit) return `<button class="${cls} callable" data-act="call" data-t="${t}" data-i="${i}" aria-label="${label}, 눌러서 부르기">${inner}</button>`;
   return `<a class="${cls}" href="#cell-${t}-${i}" data-t="${t}" data-i="${i}" draggable="false" aria-label="${label}">${inner}</a>`;
@@ -980,23 +995,23 @@ async function saveComment() {
   if (await put('comments', uid('cm-'), data)) toast('댓글을 남겼어요.');
 }
 
-/* ── 전체 빙고판 (운영진) ─────────────────────────
-   모든 조의 판을 한 화면에 작게 보여 준다. 화면을 그릴 때마다 최신 상태라 따로 새로 고칠 필요가 없다. */
-function liveCell(c, hit, inLine) {
+/* ── 전체 빙고판 ─────────────────────────
+   모든 조의 판을 한 화면에 작게 보여 준다. 누구나 볼 수 있어서 문제 칸은 어떤 문제인지 적지 않고 비워 둔다. */
+function liveCell(c, i, hit, inLine) {
   if (!c) return '<i class="lc"></i>';
-  const cls = `lc f${hit ? ' hit' : ''}${inLine ? ' line' : ''}`;
-  if (c.kind === 'problem') return `<i class="${cls}" title="${esc(cellProbName(c))}">${hasProb(c) ? swatch(c) : '문제'}</i>`;
-  return `<i class="${cls} k">${c.kind === 'duel' ? '대결' : '팀'}</i>`;
+  const cls = `lc f${inLine ? ' line' : ''}`, ring = hit ? ringSVG(i) : '';
+  if (c.kind === 'problem') return `<i class="${cls}">${ring}</i>`;
+  return `<i class="${cls} k">${c.kind === 'duel' ? '대결' : '팀'}${ring}</i>`;
 }
 function liveView() {
   const g = game(), rk = ranking(), tt = turnTeam(), set = calledSet();
-  let h = topbar() + `<a class="back" href="#admin">‹ 운영진 페이지</a>${gameBanner()}
-    <p class="hint">${g.phase === 'fill' ? '지금은 칸 채우는 시간이에요. ' : ''}모든 조의 빙고판이 바뀌는 대로 바로 보여요. 네모는 테이프 색, 동그란 점은 홀드 색이고, 원이 둘러진 칸이 동그라미 친 칸이에요. 조를 누르면 그 조 빙고판이 열려요.</p><div class="live">`;
+  let h = topbar() + `<a class="back" href="#">‹ 전체 조</a>${gameBanner()}
+    <p class="hint">${g.phase === 'fill' ? '지금은 칸 채우는 시간이에요. ' : ''}모든 조의 빙고판이 바뀌는 대로 바로 보여요. 흰 칸은 채운 문제 칸이고, 동그라미가 쳐진 칸만 빙고 줄로 쳐요. 조를 누르면 그 조 빙고판이 열려요.</p><div class="live">`;
   for (let t = 1; t <= TEAMS; t++) {
     const cs = teamCells(t), won = wonLines(cs, set), hot = new Set([].concat(...won)), r = rk.find(x => x.t === t);
     const state = r.fin != null ? `${rk.filter(x => x.pos === r.pos).length > 1 ? '공동 ' : ''}${r.pos}등` : tt === t ? '차례' : '';
     h += `<a class="lcard tc${t}${tt === t ? ' turn' : ''}" href="#team-${t}"><span class="lhead"><span class="tape">${t}조</span><b>${won.length}줄</b>${state ? `<em>${state}</em>` : ''}</span>
-      <span class="lgrid">${cs.map((c, i) => liveCell(c, isHit(c, set), hot.has(i))).join('')}</span>
+      <span class="lgrid">${cs.map((c, i) => liveCell(c, i, isHit(c, set), hot.has(i))).join('')}</span>
       <span class="lfoot">동그라미 ${hitCells(cs, set).filter(Boolean).length} · 채운 칸 ${cs.filter(Boolean).length}/${CELLS}</span></a>`;
   }
   h += `</div>`;
