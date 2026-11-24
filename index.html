@@ -183,6 +183,8 @@ textarea.inp{resize:vertical;line-height:1.5}
 .tally b{color:var(--ink);font-weight:700}
 .tally .full{background:var(--c);color:var(--cf)}
 .tally .full b{color:inherit}
+.tally b+b{margin-left:4px}
+.tally em{font-style:normal;font-size:12px;color:var(--ink-3);align-self:center;margin-right:2px}
 
 .board{
   position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:14px;
@@ -477,7 +479,7 @@ const CONFIG = {
 const PASSWORD = '0000';
 const TEAMS = 7, N = 5, CELLS = N * N, CENTER = 12;
 /* 가운데 한 칸은 팀 인증샷, 나머지 24칸은 문제 18칸 + 팀 대결 6칸. 어느 칸을 무엇으로 채울지는 조가 정한다. */
-const QUOTA = { photo: 1, problem: 18, duel: 6 }, PER_PERSON = 3;
+const QUOTA = { photo: 1, problem: 18, duel: 6 };
 /* 이 줄 수를 먼저 완성한 조부터 끝나고 순위가 정해진다 */
 const GOAL_LINES = 6;
 /* 추첨권: 1·2등 조는 한 사람당 3장, 3~5등 조는 2장, 6·7등 조는 1장. 1~84번을 무작위로 나누고 85~100번은 운영진이 직접 준다. */
@@ -591,11 +593,22 @@ function teamCells(t) {
 const doneCount = t => teamCells(t).filter(Boolean).length;
 const kindCount = (cells, k, skip) => cells.filter(c => c && c.kind === k && c.idx !== skip).length;
 const setting = k => !S.settings.main || S.settings.main[k] !== false;
-/* 조원별로 채운 문제 수 */
-function solvedBy(cells, skip) {
-  const n = {};
-  cells.forEach(c => { if (c && c.kind === 'problem' && c.idx !== skip) (c.by || []).forEach(id => { n[id] = (n[id] || 0) + 1; }); });
-  return n;
+/* 한 사람이 채울 수 있는 칸 수. 조원이 6명이면 문제 3칸 · 대결 1칸씩이다.
+   조원이 적으면 칸이 남으니까 올림한 수(5명이면 4 · 2)까지 풀어 주되, 모두가 내림한 수(3 · 1)는 채우도록
+   그보다 더 채우는 사람 수를 남는 칸 수만큼으로 묶는다(5명이면 문제 4칸은 3명, 대결 2칸은 1명). */
+function shareOf(t, kind, skip) {
+  const mem = teamMembers(t), n = mem.length, q = QUOTA[kind], cnt = {};
+  teamCells(t).forEach(c => { if (c && c.kind === kind && c.idx !== skip) (c.by || []).forEach(id => { cnt[id] = (cnt[id] || 0) + 1; }); });
+  const on = !!n && setting('perPerson'), lo = on ? Math.floor(q / n) : 0, hi = on ? Math.ceil(q / n) : Infinity;
+  const spare = on ? q - lo * n : 0, over = mem.filter(m => (cnt[m.id] || 0) > lo).length;
+  return { on, lo, hi, spare, n: id => cnt[id] || 0, max: id => (!on ? Infinity : (cnt[id] || 0) > lo || over < spare ? hi : lo) };
+}
+const shareTxt = (s, u) => (s.lo === s.hi ? `${s.hi}${u}씩` : s.lo ? `${s.lo}~${s.hi}${u}씩` : `${s.hi}${u}까지`);
+function shareErr(sh, who, kind) {
+  if (!who || sh.n(who) < sh.max(who)) return '';
+  const nm = S.members[who] ? S.members[who].name : '이 조원', u = k => (kind === 'problem' ? `${k}문제` : `대결 ${k}칸`);
+  return sh.n(who) >= sh.hi ? `${nm} 님은 이미 ${u(sh.hi)}${kind === 'problem' ? '를' : '을'} 채웠어요.`
+    : `${u(sh.hi)}까지 채울 수 있는 조원은 ${sh.spare}명이에요. ${nm} 님은 ${u(sh.lo)}까지 채울 수 있어요.`;
 }
 /* 이 조가 이미 쓴 대결 미션 */
 const duelUsed = (cells, skip) => new Set(cells.filter(c => c && c.kind === 'duel' && c.idx !== skip).map(c => c.missionId));
@@ -625,8 +638,9 @@ function finishAt(cs, calls) {
   for (let k = 0; k <= calls.length; k++) { if (wonLines(cs, new Set(calls.slice(0, k).map(x => x.p))).length >= GOAL_LINES) return k; }
   return null;
 }
-/* 빙고가 시작되면 조원은 판을 바꿀 수 없다. 운영진은 언제든 고칠 수 있다. */
-const canChange = t => canEdit(t) && (game().phase === 'fill' || !!meObj().admin);
+/* 빙고가 시작되면 운영진도 판을 바꿀 수 없다(칸을 옮기거나 고치면 부정행위가 된다).
+   고칠 일이 생기면 운영진이 칸 채우는 시간으로 되돌린 다음에 고친다. */
+const canChange = t => canEdit(t) && game().phase === 'fill';
 /* 다른 조의 문제 칸은 빙고가 끝날 때까지 가린다(보고 따라 올리지 못하게).
    우리 조와 운영진은 항상 보고, 이미 불려서 동그라미가 쳐진 문제는 모두에게 알려진 것이라 보여 준다. */
 const hiddenFor = c => { const m = meObj(); return !!c && c.kind === 'problem' && game().phase !== 'done' && !(m && (m.admin || m.team === c.team)) && !isHit(c); };
@@ -786,7 +800,7 @@ function gameBanner() {
   const g = game();
   if (g.phase === 'fill') return '';
   const last = g.calls[g.calls.length - 1];
-  const lastTxt = last ? `<p class="gb-last">방금 ${last.t}조가 부른 문제 · <b>${esc(last.name)}</b></p>` : '';
+  const lastTxt = last ? `<p class="gb-last">방금 ${last.t}조가 동그라미 친 문제 · <b>${esc(last.name)}</b></p>` : '';
   if (g.phase === 'done') return `<section class="gbar"><b>빙고가 끝났어요</b><p class="gb-last">조 순위가 확정됐어요. ${raffle() ? '추첨권 번호도 나왔어요. 위쪽 ‘내 정보’에서 내 번호를 확인하세요.' : '추첨권 번호는 운영진이 뽑으면 볼 수 있어요.'}</p></section>`;
   const tt = turnTeam(), cur = g.turn % g.order.length, fin = new Set(g.order.filter(t => finishAt(teamCells(t)) != null));
   return `<section class="gbar tc${tt}"><b>빙고 진행 중 · 지금 ${tt}조 차례</b>
@@ -880,7 +894,7 @@ function cellHTML(t, i, c, can, inLine, callOn) {
     + (prob && hasProb(c) ? `<span class="pb">${SECTOR_SHORT[c.sector] || ''}${swatch(c)}</span>` : '')
     + (hit ? ringSVG(i) : '');
   const cls = `cell done k-${c.kind}${hit ? ' hit' : ''}${inLine ? ' line' : ''}${pop}`, label = `${cellName(i)} ${KIND[c.kind]}: ${esc(prob ? cellProbName(c) : text)}${hit ? ', 동그라미' : ''}`;
-  if (callOn && prob && !hit) return `<button class="${cls} callable" data-act="call" data-t="${t}" data-i="${i}" aria-label="${label}, 눌러서 부르기">${inner}</button>`;
+  if (callOn && prob && !hit) return `<button class="${cls} callable" data-act="call" data-t="${t}" data-i="${i}" aria-label="${label}, 눌러서 동그라미 치기">${inner}</button>`;
   return `<a class="${cls}" href="#cell-${t}-${i}" data-t="${t}" data-i="${i}" draggable="false" aria-label="${label}">${inner}</a>`;
 }
 
@@ -888,17 +902,17 @@ function teamView(t) {
   const cells = teamCells(t), n = cells.filter(Boolean).length, can = canChange(t), mine = meObj().team === t, g = game();
   const won = wonLines(cells), hot = new Set([].concat(...won)), hits = hitCells(cells).filter(Boolean).length;
   const p = kindCount(cells, 'problem'), d = kindCount(cells, 'duel'), ph = cells[CENTER] ? 1 : 0;
-  const mem = teamMembers(t), solved = solvedBy(cells), lim = setting('perPerson');
+  const mem = teamMembers(t), shP = shareOf(t, 'problem'), shD = shareOf(t, 'duel');
   const myTurn = g.phase === 'call' && turnTeam() === t && canEdit(t);
   let tip;
   const st = ranking().find(r => r.t === t);
   if (st.fin != null) tip = `${GOAL_LINES}줄을 완성해서 끝났어요. ${st.pos}등이에요.`;
   else if (g.phase === 'done') tip = '빙고가 끝났어요. 칸을 누르면 자세히 볼 수 있어요.';
-  else if (g.phase === 'call') tip = myTurn ? '지금 이 조 차례예요. 점선이 쳐진 문제 칸 중 하나를 눌러서 불러주세요.' : turnTeam() === t ? `${t}조가 부를 문제를 고르는 중이에요.` : `지금은 ${turnTeam()}조 차례예요. 다른 조가 부른 문제가 이 판에 있으면 동그라미가 쳐져요.${canEdit(t) ? '' : ' 가려진 문제 칸은 불리거나 빙고가 끝나면 보여요.'}`;
+  else if (g.phase === 'call') tip = myTurn ? '지금 이 조 차례예요. 점선이 쳐진 문제 칸 중 하나를 골라서 동그라미를 쳐주세요.' : turnTeam() === t ? `${t}조가 동그라미 칠 문제를 고르는 중이에요.` : `지금은 ${turnTeam()}조 차례예요. 다른 조가 동그라미 친 문제가 이 판에도 있으면 같이 쳐져요.${canEdit(t) ? '' : ' 가려진 문제 칸은 동그라미가 쳐지거나 빙고가 끝나면 보여요.'}`;
   else tip = can ? `빈 칸을 눌러서 채워요. 가운데는 팀 인증샷, 나머지는 문제 ${QUOTA.problem}칸과 팀 대결 ${QUOTA.duel}칸이에요.` : `${t}조만 이 빙고판을 바꿀 수 있어요. 다른 조의 문제 칸은 빙고가 끝날 때까지 흐리게 가려져요.`;
   const h = topbar() + `<a class="back" href="#">‹ 전체 조</a>${gameBanner()}
   <header class="teamhead tc${t}"><div class="bignum">${t}<small>조</small></div>
-    <div class="who"><b>${mine ? '우리 조' : canEdit(t) ? '운영진 권한으로 수정 가능' : '구경 중'}</b>${esc(mem.map(x => x.name).join(', ')) || '아직 조원이 없어요'}</div></header>
+    <div class="who"><b>${mine ? '우리 조' : can ? '운영진 권한으로 수정 가능' : '구경 중'}</b>${esc(mem.map(x => x.name).join(', ')) || '아직 조원이 없어요'}</div></header>
   <section class="prog tc${t}">
     <div class="prog-top"><span class="prog-n"><b>${won.length}</b>줄 빙고${st.fin != null ? `<em class="state" style="font-style:normal">${st.pos}등 완성</em>` : ''}</span><span class="hint">동그라미 ${hits}칸 · 채운 칸 ${n} / ${CELLS}</span></div>
     <div class="goals">
@@ -906,13 +920,13 @@ function teamView(t) {
       <div class="goal${p >= QUOTA.problem ? ' on' : ''}"><b>문제</b>${p} / ${QUOTA.problem}</div>
       <div class="goal${d >= QUOTA.duel ? ' on' : ''}"><b>팀 대결</b>${d} / ${QUOTA.duel}</div>
     </div>
-    ${mem.length ? `<div class="tally" aria-label="조원별로 채운 문제 수">${mem.map(x => { const k = solved[x.id] || 0; return `<span class="${lim && k >= PER_PERSON ? 'full' : ''}">${esc(x.name)} <b>${k}${lim ? ' / ' + PER_PERSON : ''}</b></span>`; }).join('')}</div>` : ''}
+    ${mem.length ? `<div class="tally" aria-label="조원별로 채운 문제 칸과 대결 칸 수"><em>문제 · 대결</em>${mem.map(x => { const a = shP.n(x.id), b = shD.n(x.id), am = shP.max(x.id), bm = shD.max(x.id); return `<span class="${shP.on && a >= am && b >= bm ? 'full' : ''}">${esc(x.name)} <b>${a}${shP.on ? '/' + am : ''}</b> <b>${b}${shD.on ? '/' + bm : ''}</b></span>`; }).join('')}</div>` : ''}
   </section>
   <section class="board tc${t}" aria-label="${t}조 빙고판"><i class="bolt"></i><i class="bolt"></i><i class="bolt"></i><i class="bolt"></i>
     ${cells.map((c, i) => cellHTML(t, i, c, can, hot.has(i), myTurn)).join('')}</section>
   <div class="cta tc${t}">
     <p>${tip}</p>
-    ${g.phase === 'fill' ? `<p>${can && n ? '채운 칸을 길게 눌러서 끌면 자리를 바꿀 수 있어요. ' : ''}대결 칸과 인증샷은 바로 동그라미가 쳐지고, 문제 칸은 빙고가 시작된 뒤에 불려야 쳐져요.</p>` : ''}
+    ${g.phase === 'fill' ? `<p>${can && n ? '채운 칸을 길게 눌러서 끌면 자리를 바꿀 수 있어요. ' : ''}대결 칸과 인증샷은 바로 동그라미가 쳐지고, 문제 칸은 빙고가 시작된 뒤 차례가 온 조가 그 문제를 골라야 쳐져요.</p>` : ''}
     <button class="btn quiet" data-act="mlist" data-t="${t}">팀 대결 미션 목록 보기</button></div>`;
   popCell = null;
   return h;
@@ -943,7 +957,7 @@ function cellView(t, i) {
       + (can ? `<div class="cta tc${t}"><button class="btn team" data-act="fill" data-t="${t}" data-i="${i}">이 칸 채우기</button></div>` : '');
   }
   if (hiddenFor(c)) {
-    return h + `<section class="mission tc${t}">${top}<h1>아직 볼 수 없는 칸</h1><p>다른 조가 올린 문제는 빙고가 끝난 뒤에 볼 수 있어요. 그 전에 불려서 동그라미가 쳐진 문제는 바로 볼 수 있어요.</p></section>`;
+    return h + `<section class="mission tc${t}">${top}<h1>아직 볼 수 없는 칸</h1><p>다른 조가 올린 문제는 빙고가 끝난 뒤에 볼 수 있어요. 그 전에 동그라미가 쳐진 문제는 바로 볼 수 있어요.</p></section>`;
   }
   const who = (c.by || []).map(id => S.members[id]).filter(Boolean).map(m => m.name);
   h += `<section class="mission tc${t}">${top}`;
@@ -952,12 +966,12 @@ function cellView(t, i) {
   else if (hasProb(c)) h += `<span class="kicker">완등한 문제</span><h1>${esc(SECTORS[c.sector] || '')}</h1>
     <div class="ptags"><span>${dot(lv(c.level)[1])}난이도 ${lv(c.level)[0]}</span><span>${dot(hd(c.hold)[1])}홀드 ${hd(c.hold)[0]}</span></div>${c.note ? `<p>${esc(c.note)}</p>` : ''}`;
   else h += `<span class="kicker">완등한 문제</span><h1>${esc(c.title)}</h1>`;
-  if (c.kind === 'problem' && !isHit(c)) h += `<p>${g.phase === 'fill' ? '빙고가 시작된 뒤 누군가 이 문제를 부르면 동그라미가 쳐져요.' : '아직 아무도 부르지 않은 문제예요.'}</p>`;
+  if (c.kind === 'problem' && !isHit(c)) h += `<p>${g.phase === 'fill' ? '빙고가 시작된 뒤 어느 조든 차례에 이 문제를 고르면 동그라미가 쳐져요.' : '아직 동그라미가 안 쳐진 문제예요.'}</p>`;
   h += `</section><section class="proof tc${t}">
     ${(c.media || []).length ? `<div class="gallery">${c.media.map(m => mediaTag(m, false)).join('')}</div>` : ''}
     ${c.desc ? `<p class="desc">${esc(c.desc)}</p>` : ''}
     <div class="by">${who.map(n => `<span>${esc(n)}</span>`).join('')}${fmtTime(c.doneAt) ? ' ' + fmtTime(c.doneAt) + ' 등록' : ''}</div></section>`;
-  if (g.phase === 'call' && turnTeam() === t && canEdit(t) && c.kind === 'problem' && !isHit(c)) h += `<div class="cta tc${t}"><button class="btn team" data-act="call" data-t="${t}" data-i="${i}">이 문제 부르기</button></div>`;
+  if (g.phase === 'call' && turnTeam() === t && canEdit(t) && c.kind === 'problem' && !isHit(c)) h += `<div class="cta tc${t}"><button class="btn team" data-act="call" data-t="${t}" data-i="${i}">이 문제에 동그라미 치기</button></div>`;
   if (can) h += `<div class="stack tc${t}"><button class="btn ghost" data-act="proof" data-t="${t}" data-i="${i}">내용 수정</button>
     <button class="btn quiet" data-act="clearcell" data-t="${t}" data-i="${i}">이 칸 비우기</button></div>`;
   return h + commentsHTML(t, i, c);
@@ -1015,7 +1029,7 @@ function liveView() {
       <span class="lfoot">동그라미 ${hitCells(cs, set).filter(Boolean).length} · 채운 칸 ${cs.filter(Boolean).length}/${CELLS}</span></a>`;
   }
   h += `</div>`;
-  if (g.calls.length) h += `<div class="group"><div class="group-h"><b>부른 문제 ${g.calls.length}개</b><span>최근 순</span></div>${g.calls.slice().reverse().slice(0, 10).map((c, k) => `<div class="prow"><b>${g.calls.length - k}. ${esc(c.name)}</b><span>${c.t}조</span></div>`).join('')}</div>`;
+  if (g.calls.length) h += `<div class="group"><div class="group-h"><b>동그라미 친 문제 ${g.calls.length}개</b><span>최근 순</span></div>${g.calls.slice().reverse().slice(0, 10).map((c, k) => `<div class="prow"><b>${g.calls.length - k}. ${esc(c.name)}</b><span>${c.t}조</span></div>`).join('')}</div>`;
   return h;
 }
 
@@ -1189,14 +1203,14 @@ function adminView() {
         <button class="btn" data-act="g-start">빙고 시작</button></div>`;
     } else {
       const cur = g.order.length ? g.turn % g.order.length : 0;
-      h += `<div class="setting gctl"><span class="label">${g.phase === 'call' ? `빙고 진행 중 · 지금 ${tt}조 차례` : '빙고 종료'}<small>부른 문제 ${g.calls.length}개</small></span>
+      h += `<div class="setting gctl"><span class="label">${g.phase === 'call' ? `빙고 진행 중 · 지금 ${tt}조 차례` : '빙고 종료'}<small>동그라미 친 문제 ${g.calls.length}개</small></span>
         <div class="gb-order ink">${g.order.map((t, k) => `<span class="tc${t}${g.phase === 'call' && k === cur ? ' on' : ''}">${t}조</span>`).join('')}</div>
         ${g.phase === 'call' ? `<button class="btn" data-act="g-skip">${tt}조 차례 넘기기</button>` : `<button class="btn" data-act="g-resume">이어서 진행하기</button>`}
-        ${g.calls.length ? `<button class="btn ghost" data-act="g-undo">마지막에 부른 문제 취소</button>` : ''}
+        ${g.calls.length ? `<button class="btn ghost" data-act="g-undo">마지막 동그라미 취소</button>` : ''}
         ${g.phase === 'call' ? `<button class="btn ghost" data-act="g-end">빙고 끝내기</button>` : ''}
         <button class="btn danger" data-act="g-reset">칸 채우는 시간으로 되돌리기</button>
-        <p class="hint">조원이 직접 자기 판에서 문제를 눌러 불러요. 운영진은 차례인 조의 판에 들어가서 대신 불러줄 수도 있어요. 되돌리면 부른 문제와 동그라미가 모두 지워져요.</p></div>`;
-      if (g.calls.length) h += `<div class="group"><div class="group-h"><b>부른 문제</b><span>최근 순</span></div>${g.calls.slice().reverse().slice(0, 12).map((c, k) => `<div class="prow"><b>${g.calls.length - k}. ${esc(c.name)}</b><span>${c.t}조</span></div>`).join('')}</div>`;
+        <p class="hint">조원이 직접 자기 판에서 문제 칸을 눌러 동그라미를 쳐요. 운영진은 차례인 조의 판에 들어가서 대신 쳐줄 수도 있어요. 되돌리면 문제 칸에 친 동그라미가 모두 지워지고, 다시 칸을 채우거나 고칠 수 있어요.</p></div>`;
+      if (g.calls.length) h += `<div class="group"><div class="group-h"><b>동그라미 친 문제</b><span>최근 순</span></div>${g.calls.slice().reverse().slice(0, 12).map((c, k) => `<div class="prow"><b>${g.calls.length - k}. ${esc(c.name)}</b><span>${c.t}조</span></div>`).join('')}</div>`;
     }
     let rows = '';
     for (let t = 1; t <= TEAMS; t++) {
@@ -1206,7 +1220,7 @@ function adminView() {
     const usedMb = Math.round(usedBytes() / 1048576);
     h += `<div class="group">${rows}</div>
       <div class="setting"><span class="label">올라온 사진 약 ${usedMb} MB<small>${STORAGE_BUDGET_MB} MB를 넘으면 더 올릴 수 없어요.</small></span><div class="meter"><i style="width:${Math.min(100, Math.round(usedMb / STORAGE_BUDGET_MB * 100))}%"></i></div></div>
-      <div class="setting field row"><span class="label">문제는 한 사람당 ${PER_PERSON}개까지<small>끄면 한 사람이 문제 칸을 몇 개든 채울 수 있어요. 조원이 6명보다 적을 때 쓰세요.</small></span><button class="switch" role="switch" aria-checked="${setting('perPerson')}" data-act="toggle-set" data-key="perPerson" aria-label="문제는 한 사람당 ${PER_PERSON}개까지"></button></div>`;
+      <div class="setting field row"><span class="label">한 사람이 채우는 칸 수 정해 두기<small>6명인 조는 한 사람이 문제 3칸 · 대결 1칸씩, 5명인 조는 문제 3~4칸 · 대결 1~2칸씩 채워요. 조원 수는 참가자 탭 기준이에요. 끄면 한 사람이 몇 칸이든 채울 수 있어요.</small></span><button class="switch" role="switch" aria-checked="${setting('perPerson')}" data-act="toggle-set" data-key="perPerson" aria-label="한 사람이 채우는 칸 수 정해 두기"></button></div>`;
   }
   return h;
 }
@@ -1228,7 +1242,7 @@ function openStart() {
   const g = game();
   go = { order: g.order.length === TEAMS ? g.order.slice() : Array.from({ length: TEAMS }, (_, k) => k + 1) };
   openSheet(`<div style="display:flex;flex-direction:column;gap:14px">
-    <h2>빙고 시작</h2><p class="sheet-sub" style="margin-top:-6px">문제를 부를 조 순서를 정해주세요. 시작하면 조원들은 칸을 더 채우거나 옮길 수 없어요.</p>
+    <h2>빙고 시작</h2><p class="sheet-sub" style="margin-top:-6px">동그라미를 칠 조 순서를 정해주세요. 시작하면 운영진을 포함해 아무도 칸을 채우거나 옮기거나 고칠 수 없어요.</p>
     <div class="group" id="go-list">${goRows()}</div>
     <button class="btn ghost" data-act="go-shuffle">무작위로 섞기</button>
     <button class="btn" data-act="go-start">이 순서로 빙고 시작</button>
@@ -1239,13 +1253,13 @@ async function startGame() {
   if (!go || !meObj() || !meObj().admin) return;
   const g = { phase: 'call', order: go.order.slice(), turn: 0, calls: [], startedAt: Date.now() };
   const k = nextTurn(g, 0);
-  if (k < 0) return toast('부를 수 있는 문제 칸이 하나도 없어요. 조들이 문제 칸을 먼저 채워야 해요.');
+  if (k < 0) return toast('동그라미 칠 문제 칸이 하나도 없어요. 조들이 문제 칸을 먼저 채워야 해요.');
   g.turn = k; go = null; closeSheet();
   if (await put('settings', 'game', g)) toast(`빙고를 시작했어요. ${g.order[k]}조부터예요.`);
 }
 async function callProblem(t, i) {
   const g = game(), c = teamCells(t)[i];
-  if (g.phase !== 'call' || turnTeam() !== t || !canEdit(t) || !c || c.kind !== 'problem' || isHit(c)) return toast('지금은 이 칸을 부를 수 없어요.');
+  if (g.phase !== 'call' || turnTeam() !== t || !canEdit(t) || !c || c.kind !== 'problem' || isHit(c)) return toast('지금은 이 칸에 동그라미를 칠 수 없어요.');
   const n = Object.assign({}, g, { calls: g.calls.concat({ p: probKey(c), t, at: Date.now(), name: cellProbName(c) }) });
   const k = nextTurn(n, g.turn + 1);
   if (k < 0) n.phase = 'done'; else n.turn = k;
@@ -1257,7 +1271,7 @@ async function gameAct(act) {
   if (act === 'skip') { const k = nextTurn(n, g.turn + 1); if (k < 0) return toast('넘길 조가 없어요.'); n.turn = k; }
   else if (act === 'undo') { const last = n.calls.pop(); if (!last) return; const k = n.order.indexOf(last.t); n.turn = k < 0 ? g.turn : k; n.phase = 'call'; delete n.tb; }
   else if (act === 'end') n.phase = 'done';
-  else if (act === 'resume') { const k = nextTurn(n, g.turn); if (k < 0) return toast('더 부를 문제 칸이 없어요.'); n.turn = k; n.phase = 'call'; }
+  else if (act === 'resume') { const k = nextTurn(n, g.turn); if (k < 0) return toast('더 동그라미 칠 문제 칸이 없어요.'); n.turn = k; n.phase = 'call'; }
   else if (act === 'reset') { n.phase = 'fill'; n.calls = []; n.turn = 0; delete n.tb; }
   await put('settings', 'game', n);
 }
@@ -1308,7 +1322,7 @@ function notice() {
     if (mine && newly.includes(mine.t)) { if (fxEl.hidden) celebrate(mine.t, lines, mine.pos, rk.filter(r => r.pos === mine.pos).length > 1); }
     else if (mine && lines > seen.lines && fxEl.hidden) celebrate(mine.t, lines);
     if (newly.length) { const p = rk.find(r => r.t === newly[0]).pos; toast(`${newly.map(t => t + '조').join(', ')} ${GOAL_LINES}줄 완성 · ${rk.filter(r => r.pos === p).length > 1 ? '공동 ' : ''}${p}등`); }
-    else if (calls > seen.calls) { const c = g.calls[calls - 1]; toast(`${c.t}조가 불렀어요 · ${c.name}`); }
+    else if (calls > seen.calls) { const c = g.calls[calls - 1]; toast(`${c.t}조가 동그라미를 쳤어요 · ${c.name}`); }
   }
   seen = { me: meId, calls, lines, fin };
 }
@@ -1317,10 +1331,10 @@ function openCall(t, i) {
   if (!c) return;
   if (game().phase !== 'call' || turnTeam() !== t || !canEdit(t) || c.kind !== 'problem' || isHit(c)) { location.hash = `cell-${t}-${i}`; return; }
   openSheet(`<div class="tc${t}" style="display:flex;flex-direction:column;gap:14px">
-    <h2>이 문제를 부를까요?</h2>
+    <h2>이 문제에 동그라미를 칠까요?</h2>
     <div class="callcard">${hasProb(c) ? swatch(c) : ''}<b>${esc(cellProbName(c))}</b></div>
-    <p class="hint">부르면 이 문제를 가진 모든 조의 칸에 동그라미가 쳐지고, 다음 조로 차례가 넘어가요.</p>
-    <button class="btn team" data-act="call-go" data-t="${t}" data-i="${i}">부르기</button>
+    <p class="hint">이 문제를 가진 다른 조의 칸에도 같이 동그라미가 쳐지고, 다음 조로 차례가 넘어가요.</p>
+    <button class="btn team" data-act="call-go" data-t="${t}" data-i="${i}">동그라미 치기</button>
     <a class="btn ghost" href="#cell-${t}-${i}">칸 자세히 보기</a>
     <button class="btn quiet" data-act="sheet-close">취소</button></div>`);
 }
@@ -1407,6 +1421,7 @@ function openProof(t, i, kind) {
   pf = { t, i, kind, edit: !!c, media: (c && c.media || []).map(m => Object.assign({}, m)), by: new Set(c && c.by || []), mission: c && c.missionId || '', vs: c && c.vs || 0, busy: false,
     problem: c && c.problemId || '', sector: hasProb(c) ? c.sector : null, level: hasProb(c) ? c.level : null };
   const members = teamMembers(t);
+  const whoChips = sh => (members.length ? members.map(m => { const k = sh.n(m.id), on = pf.by.has(m.id); return `<button type="button" class="chip" data-act="pf-who" data-id="${m.id}" aria-pressed="${on}"${k >= sh.max(m.id) && !on ? ' disabled' : ''}>${esc(m.name)}<small>${k}${sh.on ? '/' + sh.max(m.id) : ''}</small></button>`; }).join('') : '<p class="hint">이 조에 등록된 조원이 없어요.</p>');
   const mediaField = (label, optional) => `<div class="field"><span class="label">${label}<small>${optional ? '없어도 돼요' : '꼭 올려야 해요'}</small></span><div class="mgrid" id="pf-media"></div><p class="hint">사진 최대 ${MAX_MEDIA}장</p></div>`;
   const memo = `<div class="field"><label for="pf-desc">한마디 (선택)</label><textarea class="inp" id="pf-desc" rows="2" maxlength="300" placeholder="남기고 싶은 말">${esc(c && c.desc || '')}</textarea></div>`;
   let head, body;
@@ -1414,22 +1429,22 @@ function openProof(t, i, kind) {
     head = '팀 인증샷';
     body = `<p class="hint">조원들이 함께 찍은 사진으로 가운데 칸을 채워요.</p>` + mediaField('팀 인증샷', false) + memo;
   } else if (kind === 'problem') {
-    const solved = solvedBy(cells, i), lim = setting('perPerson');
+    const sh = shareOf(t, 'problem', i);
     head = '문제 완등';
     body = `<div class="field"><span class="label">어떤 문제인가요?${c ? `<small>지금 올라간 문제: ${esc(cellProbName(c))}</small>` : ''}</span><div id="pf-prob" class="probpick"></div></div>`
       + mediaField('탑 홀드 찍은 사진', false) + `<p class="hint" style="margin-top:-8px">첫 번째 사진이 빙고판 칸에 보여요. 다른 조에게는 빙고가 끝날 때까지 흐리게 가려져요.</p>`
-      + `<div class="field"><span class="label">누가 깼나요?<small>${lim ? `한 사람이 ${PER_PERSON}문제씩 채워요` : '한 명을 골라주세요'}</small></span>
-        <div class="chips" id="pf-who">${members.length ? members.map(m => { const k = solved[m.id] || 0, on = pf.by.has(m.id); return `<button type="button" class="chip" data-act="pf-who" data-id="${m.id}" aria-pressed="${on}"${lim && k >= PER_PERSON && !on ? ' disabled' : ''}>${esc(m.name)}<small>${k}${lim ? '/' + PER_PERSON : ''}</small></button>`; }).join('') : '<p class="hint">이 조에 등록된 조원이 없어요.</p>'}</div></div>`
+      + `<div class="field"><span class="label">누가 깼나요?<small>${sh.on ? `한 사람이 ${shareTxt(sh, '문제')} 채워요` : '한 명을 골라주세요'}</small></span>
+        <div class="chips" id="pf-who">${whoChips(sh)}</div></div>`
       + memo;
   } else {
-    const used = duelUsed(cells, i);
+    const used = duelUsed(cells, i), sh = shareOf(t, 'duel', i);
     const list = missionList().filter(m => (m.active !== false && !used.has(m.id)) || m.id === pf.mission);
     if (c && !S.missions[c.missionId]) list.unshift({ id: c.missionId, no: c.no, title: c.mTitle, desc: c.mDesc });
     head = '팀 대결 승리';
     body = `<div class="field"><span class="label">어떤 대결에서 이겼나요?</span><div class="group" id="pf-missions">${list.length ? list.map(m => `<button type="button" class="qrow${m.img ? ' pic' : ''}" data-act="pf-mission" data-id="${m.id}" aria-pressed="${m.id === pf.mission}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span>${qthumb(m, false)}<em></em></button>`).join('') : '<p class="empty" style="padding-top:14px">고를 수 있는 대결 미션이 없어요.</p>'}</div></div>
       <div class="field"><span class="label">상대 조</span><div class="seg six" id="pf-vs">${Array.from({ length: TEAMS }, (_, k) => k + 1).filter(v => v !== t).map(v => `<button type="button" data-act="pf-vs" data-v="${v}" aria-pressed="${pf.vs === v}">${v}조</button>`).join('')}</div></div>
-      <div class="field"><span class="label">누가 나갔나요?<small>여러 명을 고를 수 있어요</small></span>
-        <div class="chips" id="pf-who">${members.length ? members.map(m => `<button type="button" class="chip" data-act="pf-who" data-id="${m.id}" aria-pressed="${pf.by.has(m.id)}">${esc(m.name)}</button>`).join('') : '<p class="hint">이 조에 등록된 조원이 없어요.</p>'}</div></div>`
+      <div class="field"><span class="label">누가 나갔나요?<small>${sh.on ? `한 사람이 ${shareTxt(sh, '칸')} 채워요` : '한 명을 골라주세요'}</small></span>
+        <div class="chips" id="pf-who">${whoChips(sh)}</div></div>`
       + mediaField('사진', true) + memo;
   }
   openSheet(`<form id="proof-form" class="tc${t}" novalidate>
@@ -1499,7 +1514,8 @@ async function submitProof() {
     if (cells.some(o => o && o.kind === 'problem' && o.idx !== i && probKey(o) === pf.problem)) return showErr(err, '이 문제는 이미 다른 칸에 올렸어요.');
     if (members.length && pf.by.size !== 1) return showErr(err, '누가 깼는지 한 명을 골라주세요.');
     const who = [...pf.by][0];
-    if (who && setting('perPerson') && (solvedBy(cells, i)[who] || 0) >= PER_PERSON) return showErr(err, `${S.members[who] ? S.members[who].name : '이 조원'} 님은 이미 ${PER_PERSON}문제를 채웠어요.`);
+    const full = shareErr(shareOf(t, kind, i), who, kind);
+    if (full) return showErr(err, full);
     const src = p || c;
     extra = { problemId: pf.problem, sector: src.sector, level: src.level, hold: src.hold };
     if (src.note) extra.note = src.note;
@@ -1509,7 +1525,9 @@ async function submitProof() {
     if (!pf.mission || (!m && !same)) return showErr(err, '어떤 대결에서 이겼는지 골라주세요.');
     if (duelUsed(cells, i).has(pf.mission)) return showErr(err, '이 대결 미션은 이미 다른 칸에 썼어요.');
     if (!pf.vs) return showErr(err, '상대 조를 골라주세요.');
-    if (members.length && !pf.by.size) return showErr(err, '누가 나갔는지 한 명 이상 골라주세요.');
+    if (members.length && pf.by.size !== 1) return showErr(err, '누가 나갔는지 한 명을 골라주세요.');
+    const full = shareErr(shareOf(t, kind, i), [...pf.by][0], kind);
+    if (full) return showErr(err, full);
     extra = m ? { missionId: pf.mission, no: m.no, mTitle: m.title, mDesc: m.desc || '', vs: pf.vs } : { missionId: c.missionId, no: c.no, mTitle: c.mTitle, mDesc: c.mDesc || '', vs: pf.vs };
     const img = m ? m.img : c.mImg;
     if (img) extra.mImg = img.th ? { p: img.p, th: img.th } : { p: img.p };
@@ -1591,7 +1609,7 @@ function openMember(id) {
     <h2>${m ? '참가자 수정' : '참가자 추가'}</h2>
     <div class="field"><label for="mf-name">이름</label><input class="inp" id="mf-name" maxlength="12" required value="${esc(m ? m.name : '')}" placeholder="예: 박민혁"></div>
     <div class="field"><span class="label">조</span><div class="seg" id="mf-team">${Array.from({ length: TEAMS + 1 }, (_, t) => `<button type="button" class="tc${t}" data-act="pick" data-v="${t}" aria-pressed="${t === team}">${t ? t + '조' : '미배정'}</button>`).join('')}</div></div>
-    <div class="field row"><span class="label">운영진 권한<small>참가자와 미션을 관리하고 모든 조의 빙고판을 고칠 수 있어요</small></span><button type="button" class="switch" id="mf-admin" role="switch" aria-checked="${!!(m && m.admin)}" data-act="switch" aria-label="운영진 권한"></button></div>
+    <div class="field row"><span class="label">운영진 권한<small>참가자와 미션을 관리하고, 칸 채우는 시간에는 모든 조의 빙고판을 고칠 수 있어요</small></span><button type="button" class="switch" id="mf-admin" role="switch" aria-checked="${!!(m && m.admin)}" data-act="switch" aria-label="운영진 권한"></button></div>
     <p class="err" id="mf-err" hidden></p>
     <button class="btn" type="submit">저장</button>
     ${m && m.pwh ? `<button class="btn ghost" type="button" data-act="m-pw" data-id="${id}">비밀번호를 0000으로 되돌리기</button>` : ''}
@@ -1730,8 +1748,7 @@ document.addEventListener('click', async e => {
     case 'proof': openProof(t, i); break;
     case 'pf-who': {
       if (!pf || pf.busy) break;
-      if (pf.kind === 'problem') { const was = pf.by.has(d.id); pf.by.clear(); if (!was) pf.by.add(d.id); }
-      else if (pf.by.has(d.id)) pf.by.delete(d.id); else pf.by.add(d.id);
+      { const was = pf.by.has(d.id); pf.by.clear(); if (!was) pf.by.add(d.id); }
       el.parentElement.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', pf.by.has(b.dataset.id)));
       break;
     }
@@ -1759,7 +1776,7 @@ document.addEventListener('click', async e => {
     case 'g-resume': await gameAct('resume'); break;
     case 'g-undo': if (armed(el, '한 번 더 누르면 취소돼요')) await gameAct('undo'); break;
     case 'g-end': if (armed(el, '한 번 더 누르면 빙고가 끝나요')) await gameAct('end'); break;
-    case 'g-reset': if (armed(el, '한 번 더 누르면 부른 문제가 모두 지워져요')) await gameAct('reset'); break;
+    case 'g-reset': if (armed(el, '한 번 더 누르면 문제 칸 동그라미가 모두 지워져요')) await gameAct('reset'); break;
     case 'pw-open': openPw(); break;
     case 'm-pw': { const mm = S.members[d.id]; if (mm) { const c = Object.assign({}, mm); delete c.pwh; closeSheet(); if (await put('members', d.id, c)) toast('비밀번호를 0000으로 되돌렸어요.'); } break; }
     case 'rf-draw': if (!raffle() || armed(el, '한 번 더 누르면 번호가 새로 바뀌어요')) await drawRaffle(); break;
