@@ -572,8 +572,12 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const uid = p => p + Math.random().toString(36).slice(2, 10);
 const norm = s => String(s || '').replace(/\s+/g, '');
 const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' }) : '';
-const meObj = () => (meId && S.members[meId]) ? Object.assign({ id: meId }, S.members[meId]) : null;
-const canEdit = t => { const m = meObj(); return !!m && (m.admin || m.team === t); };
+/* 마스터는 운영진이 하는 일을 모두 할 수 있고, 거기에 더해 다른 조의 빙고판을 보고 고칠 수 있다. */
+const meObj = () => { const m = meId && S.members[meId]; return m ? Object.assign({ id: meId }, m, m.master ? { admin: true } : null) : null; };
+const isMaster = () => { const m = meObj(); return !!m && !!m.master; };
+/* 빙고판은 그 조 조원과 마스터만 바꿀 수 있다. 운영진도 자기 조 판만 바꾼다. */
+const canEdit = t => { const m = meObj(); return !!m && (!!m.master || m.team === t); };
+const shuffle = a => { for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; };
 
 let toastTimer;
 function toast(msg) {
@@ -638,12 +642,15 @@ function finishAt(cs, calls) {
   for (let k = 0; k <= calls.length; k++) { if (wonLines(cs, new Set(calls.slice(0, k).map(x => x.p))).length >= GOAL_LINES) return k; }
   return null;
 }
-/* 빙고가 시작되면 운영진도 판을 바꿀 수 없다(칸을 옮기거나 고치면 부정행위가 된다).
+/* 빙고가 시작되면 마스터도 판을 바꿀 수 없다(칸을 옮기거나 고치면 부정행위가 된다).
    고칠 일이 생기면 운영진이 칸 채우는 시간으로 되돌린 다음에 고친다. */
 const canChange = t => canEdit(t) && game().phase === 'fill';
-/* 다른 조의 문제 칸은 빙고가 끝날 때까지 가린다(보고 따라 올리지 못하게).
-   우리 조와 운영진은 항상 보고, 이미 불려서 동그라미가 쳐진 문제는 모두에게 알려진 것이라 보여 준다. */
-const hiddenFor = c => { const m = meObj(); return !!c && c.kind === 'problem' && game().phase !== 'done' && !(m && (m.admin || m.team === c.team)) && !isHit(c); };
+/* 다른 조의 문제 칸은 빙고가 끝날 때까지 가린다(보고 따라 올리지 못하게). 끝나면 저절로 모두에게 열린다.
+   마스터가 직접 켜거나 끌 수도 있는데, 그 선택은 그 단계에서만 통하고 빙고가 시작되거나 끝나면 다시 자동으로 돌아간다. */
+const boardsOpen = () => { const o = (S.settings.main || {}).reveal, ph = game().phase; return o && o.ph === ph ? !!o.on : ph === 'done'; };
+/* 우리 조와 마스터는 항상 보고, 이미 동그라미가 쳐진 문제는 모두에게 알려진 것이라 보여 준다. 운영진도 다른 조 것은 못 본다. */
+const hiddenFor = c => { const m = meObj(); return !!c && c.kind === 'problem' && !boardsOpen() && !(m && (m.master || m.team === c.team)) && !isHit(c); };
+const veilMsg = () => (game().phase === 'done' ? '지금은 다른 조의 문제 칸을 볼 수 없어요.' : '다른 조의 문제 칸은 빙고가 끝난 뒤에 볼 수 있어요.');
 /* 댓글은 칸 자리가 바뀌어도 따라가도록 자리 번호가 아니라 칸마다 고유한 값에 붙인다. */
 const cellKey = c => c.cid || c.team + ':' + (c.doneAt || 0);
 const commentsOf = c => { const k = cellKey(c); return Object.keys(S.comments).map(id => Object.assign({ id }, S.comments[id])).filter(x => x.k === k).sort((a, b) => a.at - b.at); };
@@ -673,7 +680,7 @@ async function del(col, id) {
 async function seedIfEmpty() {
   if (S.settings.main) return;
   await put('settings', 'main', { perPerson: true, seededAt: Date.now() }, true);
-  if (!Object.keys(S.members).length) await put('members', 'm-first', { name: FIRST_ADMIN, team: 0, admin: true }, true);
+  if (!Object.keys(S.members).length) await put('members', 'm-first', { name: FIRST_ADMIN, team: 0, admin: true, master: true }, true);
 }
 
 function loadScript(src) {
@@ -718,6 +725,7 @@ function route() {
   if (h === 'me') return { v: 'me' };
   if (h === 'raffle') return { v: 'raffle' };
   if (h === 'admin' && meObj().admin) return { v: 'admin' };
+  if (h === 'master' && isMaster()) return { v: 'master' };
   if (h === 'live') return { v: 'live' };
   return { v: 'home' };
 }
@@ -739,7 +747,7 @@ function render() {
   }
   const key = r.v + ':' + (r.t || '') + ':' + (r.i == null ? '' : r.i);
   app.dataset.v = r.v;
-  app.innerHTML = r.v === 'team' ? teamView(r.t) : r.v === 'cell' ? cellView(r.t, r.i) : r.v === 'admin' ? adminView() : r.v === 'live' ? liveView() : r.v === 'me' ? myView() : r.v === 'raffle' ? raffleView() : homeView();
+  app.innerHTML = r.v === 'team' ? teamView(r.t) : r.v === 'cell' ? cellView(r.t, r.i) : r.v === 'admin' ? adminView() : r.v === 'master' ? masterView() : r.v === 'live' ? liveView() : r.v === 'me' ? myView() : r.v === 'raffle' ? raffleView() : homeView();
   if (key !== lastKey) { window.scrollTo(0, 0); lastKey = key; }
   hydrate(app);
   showArmed();
@@ -818,8 +826,9 @@ function homeView() {
       <span class="hero-r"><span class="hero-p"><b>${mine.lines}</b>줄 빙고</span><span class="hero-s">${mine.rank ? '현재 ' + mine.rank + '위 · ' : ''}${mine.n} / ${CELLS}칸</span></span>
       <span class="hero-go">우리 조 빙고판 열기</span></a>`;
   } else {
-    h += `<div class="note">${m.admin ? '운영진 계정이에요. 조 배정 없이 모든 조의 빙고판을 관리할 수 있어요.' : '아직 조가 정해지지 않았어요. 운영진에게 말해주세요.'}</div>`;
+    h += `<div class="note">${m.master ? '마스터 계정이에요. 조 배정 없이 모든 조의 빙고판을 보고 고칠 수 있어요.' : m.admin ? '운영진 계정이에요. 아직 조는 정해지지 않았어요.' : '아직 조가 정해지지 않았어요. 운영진에게 말해주세요.'}</div>`;
   }
+  if (m.master) h += `<a class="adminlink" href="#master">마스터 페이지<span>빙고판 공개 · 추첨권 · 조별 초기화</span></a>`;
   if (m.admin) h += `<a class="adminlink" href="#admin">운영진 페이지<span>참가자 · 문제 · 대결 · 빙고 진행</span></a>`;
   h += `<a class="adminlink soft" href="#live">전체 빙고판<span>모든 조 판을 한눈에 보기</span></a>`;
   h += `<a class="adminlink soft" href="#raffle">추첨권 번호<span>전체 명단 · 받은 번호 보기</span></a>`;
@@ -912,7 +921,7 @@ function teamView(t) {
   else tip = can ? `빈 칸을 눌러서 채워요. 가운데는 팀 인증샷, 나머지는 문제 ${QUOTA.problem}칸과 팀 대결 ${QUOTA.duel}칸이에요.` : `${t}조만 이 빙고판을 바꿀 수 있어요. 다른 조의 문제 칸은 빙고가 끝날 때까지 흐리게 가려져요.`;
   const h = topbar() + `<a class="back" href="#">‹ 전체 조</a>${gameBanner()}
   <header class="teamhead tc${t}"><div class="bignum">${t}<small>조</small></div>
-    <div class="who"><b>${mine ? '우리 조' : can ? '운영진 권한으로 수정 가능' : '구경 중'}</b>${esc(mem.map(x => x.name).join(', ')) || '아직 조원이 없어요'}</div></header>
+    <div class="who"><b>${mine ? '우리 조' : can ? '마스터 권한으로 수정 가능' : '구경 중'}</b>${esc(mem.map(x => x.name).join(', ')) || '아직 조원이 없어요'}</div></header>
   <section class="prog tc${t}">
     <div class="prog-top"><span class="prog-n"><b>${won.length}</b>줄 빙고${st.fin != null ? `<em class="state" style="font-style:normal">${st.pos}등 완성</em>` : ''}</span><span class="hint">동그라미 ${hits}칸 · 채운 칸 ${n} / ${CELLS}</span></div>
     <div class="goals">
@@ -957,7 +966,7 @@ function cellView(t, i) {
       + (can ? `<div class="cta tc${t}"><button class="btn team" data-act="fill" data-t="${t}" data-i="${i}">이 칸 채우기</button></div>` : '');
   }
   if (hiddenFor(c)) {
-    return h + `<section class="mission tc${t}">${top}<h1>아직 볼 수 없는 칸</h1><p>다른 조가 올린 문제는 빙고가 끝난 뒤에 볼 수 있어요. 그 전에 동그라미가 쳐진 문제는 바로 볼 수 있어요.</p></section>`;
+    return h + `<section class="mission tc${t}">${top}<h1>아직 볼 수 없는 칸</h1><p>${veilMsg()} 동그라미가 쳐진 문제는 바로 볼 수 있어요.</p></section>`;
   }
   const who = (c.by || []).map(id => S.members[id]).filter(Boolean).map(m => m.name);
   h += `<section class="mission tc${t}">${top}`;
@@ -1084,7 +1093,7 @@ const numChips = (id, big) => numbersOf(id).map(o => `<i class="num${big ? ' big
 function myView() {
   const m = meObj(), nums = numbersOf(m.id), r = raffle();
   return topbar() + `<a class="back" href="#">‹ 전체 조</a>
-  <section class="mission tc${m.team || 0}"><div class="mission-top"><span class="tape">${m.team ? m.team + '조' : '조 없음'}</span>${m.admin ? '<span class="state">운영진</span>' : ''}</div>
+  <section class="mission tc${m.team || 0}"><div class="mission-top"><span class="tape">${m.team ? m.team + '조' : '조 없음'}</span>${m.master ? '<span class="state">마스터</span>' : m.admin ? '<span class="state">운영진</span>' : ''}</div>
     <h1>${esc(m.name)}</h1></section>
   <section class="mission"><span class="kicker">내 추첨권 번호</span>
     ${nums.length ? `<div class="mynums">${numChips(m.id, true)}</div><p>모두 ${nums.length}장이에요.${nums.some(o => o.x) ? ' 테두리만 있는 번호는 운영진이 따로 준 번호예요.' : ''}</p>`
@@ -1094,27 +1103,36 @@ function myView() {
     <button class="btn quiet" data-act="logout">나가기</button></div>`;
 }
 
+/* 1~84번 가운데 이미 나간 번호와 아직 남은 번호 */
+const usedNums = () => { const s = new Set(), r = raffle(); Object.values(r && r.tickets || {}).forEach(a => a.forEach(n => s.add(n))); return s; };
+const freeNums = () => { const u = usedNums(), a = []; for (let n = 1; n <= DRAW_MAX; n++) if (!u.has(n)) a.push(n); return a; };
+/* 마스터만 쓰는 추첨권 버튼들. 추첨권 화면과 마스터 페이지에 똑같이 나온다. */
+function raffleCtl() {
+  const r = raffle(), ex = extraMap(), exList = Object.keys(ex).map(Number).sort((a, b) => a - b), done = game().phase === 'done', tied = tieGroups().length > 0;
+  return `<div class="setting gctl"><span class="label">순위대로 번호 뽑기<small>${!done ? '빙고가 끝난 뒤에 누를 수 있어요.' : tied ? '공동 순위를 먼저 정해야 누를 수 있어요.' : `지금 순위대로 1~${DRAW_MAX}번을 무작위로 나눠 줘요. 1·2등 조는 한 사람당 3장, 3~5등 조는 2장, 6·7등 조는 1장이에요.`}${r ? ' 다시 뽑으면 조에 직접 준 번호까지 모두 새로 바뀌어요.' : ''}${r && r.over ? ` 공동 순위 때문에 ${DRAW_MAX}장을 넘어서 ${EXTRA_TO + 1}번부터 더 썼어요.` : ''}</small></span>
+      <button class="btn" data-act="rf-draw"${done && !tied ? '' : ' disabled'}>${r ? '번호 다시 뽑기' : '번호 뽑기'}</button></div>
+    <div class="setting gctl"><span class="label">조에 직접 나눠 주기<small>조를 고르면 그 조 모든 조원에게 1~${DRAW_MAX}번 중 아직 안 나간 번호를 무작위로 줘요. 이미 나간 번호는 다시 나가지 않아요. 지금 ${usedNums().size}장이 나갔고 ${freeNums().length}장이 남았어요.</small></span>
+      <button class="btn ghost" data-act="rf-give">조에 번호 나눠 주기</button></div>
+    <div class="setting gctl"><span class="label">${EXTRA_FROM}~${EXTRA_TO}번 직접 주기<small>따로 주고 싶은 사람에게 번호를 골라서 넣어요. 번호를 다시 뽑아도 그대로 남아요.</small></span>
+      ${exList.length ? `<div class="exlist">${exList.map(n => `<span><i class="num x">${n}</i>${esc((S.members[ex[n]] || {}).name || '지워진 참가자')}<button data-act="rf-xdel" data-id="${n}" aria-label="${n}번 빼기">×</button></span>`).join('')}</div>` : ''}
+      <button class="btn ghost" data-act="rf-xadd"${exList.length > EXTRA_TO - EXTRA_FROM ? ' disabled' : ''}>번호 직접 주기</button></div>
+    <div class="setting gctl"><span class="label">추첨권 전체 회수<small>지금까지 나눠 준 번호를 ${EXTRA_FROM}~${EXTRA_TO}번까지 모두 지워요. 지운 번호는 되살릴 수 없어요.</small></span>
+      <button class="btn danger" data-act="rf-wipe"${r || exList.length ? '' : ' disabled'}>추첨권 전체 회수</button></div>`;
+}
 function raffleView() {
-  const m = meObj(), r = raffle(), g = game();
+  const m = meObj(), r = raffle(), rk = r && r.ranks || {}, per = r && r.per || {}, hand = r && r.hand || {};
   const order = Array.from({ length: TEAMS }, (_, k) => k + 1);
-  if (r) order.sort((a, b) => (r.ranks[a] || 99) - (r.ranks[b] || 99) || a - b);
+  order.sort((a, b) => (rk[a] || 99) - (rk[b] || 99) || a - b);
   let h = topbar() + `<a class="back" href="#">‹ 전체 조</a>
   <section class="mission"><div class="mission-top"><span class="tape tc4">추첨권 번호</span>${r ? `<span class="state">${fmtTime(r.at)} 뽑음</span>` : ''}</div>
     <h1>${r ? '추첨권 번호가 나왔어요' : '아직 번호를 뽑지 않았어요'}</h1>
     <p>1·2등 조는 한 사람당 3장, 3~5등 조는 2장, 6·7등 조는 1장을 받아요. 번호는 무작위로 정해져요.${r ? '' : ' 빙고가 끝나면 운영진이 번호를 뽑아요.'}</p></section>`;
-  if (m.admin) {
-    const ex = extraMap(), exList = Object.keys(ex).map(Number).sort((a, b) => a - b), done = g.phase === 'done', tied = tieGroups().length > 0;
-    h += tieCard() + `<div class="setting gctl"><span class="label">운영진 · 번호 뽑기<small>${!done ? '빙고가 끝난 뒤에 뽑을 수 있어요.' : tied ? '공동 순위를 먼저 정해야 뽑을 수 있어요.' : '지금 순위대로 1번부터 번호를 무작위로 나눠 줘요.'}${r && r.over ? ` 공동 순위 때문에 ${DRAW_MAX}장을 넘어서 ${EXTRA_TO + 1}번부터 더 썼어요.` : ''}</small></span>
-        <button class="btn" data-act="rf-draw"${done && !tied ? '' : ' disabled'}>${r ? '번호 다시 뽑기' : '번호 뽑기'}</button>
-        ${r ? '<button class="btn danger" data-act="rf-clear">뽑은 번호 지우기</button>' : ''}</div>
-      <div class="setting gctl"><span class="label">운영진 · ${EXTRA_FROM}~${EXTRA_TO}번 직접 주기<small>따로 주고 싶은 사람에게 번호를 골라서 넣어요. 번호를 다시 뽑아도 그대로 남아요.</small></span>
-        ${exList.length ? `<div class="exlist">${exList.map(n => `<span><i class="num x">${n}</i>${esc((S.members[ex[n]] || {}).name || '지워진 참가자')}<button data-act="rf-xdel" data-id="${n}" aria-label="${n}번 빼기">×</button></span>`).join('')}</div>` : ''}
-        <button class="btn ghost" data-act="rf-xadd"${exList.length > EXTRA_TO - EXTRA_FROM ? ' disabled' : ''}>번호 직접 주기</button></div>`;
-  }
+  if (m.admin) h += tieCard();
+  if (m.master) h += raffleCtl();
   const row = x => `<div class="prow nrow${x.id === meId ? ' mine' : ''}"><b>${esc(x.name)}${x.id === meId ? '<em>나</em>' : ''}</b><span class="nums">${numChips(x.id) || '–'}</span></div>`;
   for (const t of order) {
     const mem = teamMembers(t);
-    h += `<div class="group tc${t}"><div class="group-h"><span class="tape">${t}조</span><span>${r && r.ranks[t] ? `${r.ranks[t]}등 · 1인당 ${r.per[t]}장` : `${mem.length}명`}</span></div>`
+    h += `<div class="group tc${t}"><div class="group-h"><span class="tape">${t}조</span><span>${[rk[t] ? `${rk[t]}등 · 1인당 ${per[t]}장` : '', hand[t] ? `직접 준 번호 1인당 ${hand[t]}장` : ''].filter(Boolean).join(' · ') || `${mem.length}명`}</span></div>`
       + (mem.length ? mem.map(row).join('') : '<p class="empty">아직 조원이 없어요</p>') + `</div>`;
   }
   const loose = memberList().filter(x => !(x.team >= 1 && x.team <= TEAMS) && numbersOf(x.id).length);
@@ -1122,21 +1140,65 @@ function raffleView() {
   return h;
 }
 
-/* 지금 순위로 번호를 나눠 준다. 1~84번을 쓰고, 공동 순위로 모자라면 101번부터 이어 쓴다(85~100번은 운영진 몫). */
+/* 지금 순위로 번호를 나눠 준다. 1~84번 중에서 무작위로 쓰고, 공동 순위로 모자라면 101번부터 이어 쓴다(85~100번은 따로 주는 몫).
+   조에 직접 나눠 준 번호가 있어도 모두 새로 바뀐다. */
 async function drawRaffle() {
-  const m = meObj(); if (!m || !m.admin) return;
+  if (!isMaster()) return;
   if (game().phase !== 'done') return toast('빙고가 끝난 뒤에 뽑을 수 있어요.');
   if (tieGroups().length) return toast('공동 순위를 먼저 정해주세요.');
   const ranks = {}, per = {}, need = [];
   ranking().forEach(r => { ranks[r.t] = r.pos; per[r.t] = ticketsFor(r.pos); teamMembers(r.t).forEach(x => { for (let k = 0; k < per[r.t]; k++) need.push(x.id); }); });
   if (!need.length) return toast('번호를 받을 조원이 없어요.');
   const pool = [];
-  for (let n = 1; pool.length < need.length; n++) { if (n >= EXTRA_FROM && n <= EXTRA_TO) continue; pool.push(n); }
+  for (let n = 1; pool.length < Math.max(need.length, DRAW_MAX); n++) { if (n >= EXTRA_FROM && n <= EXTRA_TO) continue; pool.push(n); }
   for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
   const tickets = {};
   need.forEach((id, k) => { (tickets[id] = tickets[id] || []).push(pool[k]); });
   Object.values(tickets).forEach(a => a.sort((p, q) => p - q));
   if (await put('settings', 'raffle', { at: Date.now(), ranks, per, tickets, total: need.length, over: need.length > DRAW_MAX })) toast(`번호 ${need.length}장을 나눠 줬어요.`);
+}
+/* 한 조의 모든 조원에게 같은 장수만큼 나눠 준다. 순위대로 뽑기가 잘못됐을 때 마스터가 손으로 주는 길이다. */
+let gf = null;
+function drawGive() {
+  const info = document.getElementById('gf-info'), take = document.getElementById('gf-take'); if (!info || !gf) return;
+  const mem = teamMembers(gf.t), tk = raffle() && raffle().tickets || {}, have = mem.reduce((a, x) => a + (tk[x.id] || []).length, 0);
+  info.textContent = `${gf.t}조 ${mem.length}명 × ${gf.n}장 = ${mem.length * gf.n}장을 줘요. 남은 번호는 ${freeNums().length}장이고, ${gf.t}조가 지금 가진 번호는 ${have}장이에요.`;
+  if (take) take.disabled = !have;
+}
+function openGive() {
+  if (!isMaster()) return;
+  gf = { t: 1, n: 1 };
+  openSheet(`<form id="give-form" novalidate>
+    <h2>조에 번호 나눠 주기</h2><p class="sheet-sub">고른 조의 모든 조원에게 1~${DRAW_MAX}번 중 아직 안 나간 번호를 무작위로 줘요.</p>
+    <div class="field"><span class="label">조</span><div class="seg">${Array.from({ length: TEAMS }, (_, k) => `<button type="button" class="tc${k + 1}" data-act="gf-t" data-v="${k + 1}" aria-pressed="${k === 0}">${k + 1}조</button>`).join('')}</div></div>
+    <div class="field"><span class="label">한 사람당 몇 장</span><div class="chips">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="chip" data-act="gf-n" data-v="${n}" aria-pressed="${n === 1}">${n}장</button>`).join('')}</div></div>
+    <p class="hint" id="gf-info"></p>
+    <p class="err" id="gf-err" hidden></p>
+    <button class="btn" type="submit">번호 주기</button>
+    <button class="btn danger" type="button" id="gf-take" data-act="gf-take">이 조 번호만 회수</button>
+    <button class="btn quiet" type="button" data-act="sheet-close">취소</button></form>`);
+  drawGive();
+}
+async function saveGive() {
+  const err = document.getElementById('gf-err'); if (!gf || !err || !isMaster()) return;
+  const t = gf.t, n = gf.n, mem = teamMembers(t), free = shuffle(freeNums());
+  err.hidden = true;
+  if (!mem.length) return showErr(err, `${t}조에 조원이 없어요.`);
+  if (free.length < mem.length * n) return showErr(err, `남은 번호가 ${free.length}장이라 ${mem.length * n}장을 줄 수 없어요.`);
+  const r = raffle() || {}, tickets = Object.assign({}, r.tickets);
+  mem.forEach((x, k) => { tickets[x.id] = (tickets[x.id] || []).concat(free.slice(k * n, (k + 1) * n)).sort((p, q) => p - q); });
+  gf = null; closeSheet();
+  const data = Object.assign({ ranks: {}, per: {} }, r, { at: Date.now(), tickets, hand: Object.assign({}, r.hand, { [t]: ((r.hand || {})[t] || 0) + n }) });
+  if (await put('settings', 'raffle', data)) toast(`${t}조 ${mem.length}명에게 ${n}장씩 줬어요.`);
+}
+async function takeTeam() {
+  const r = raffle(); if (!gf || !r || !isMaster()) return;
+  const t = gf.t, n = Object.assign({}, r, { tickets: Object.assign({}, r.tickets), ranks: Object.assign({}, r.ranks), per: Object.assign({}, r.per), hand: Object.assign({}, r.hand) });
+  let cnt = 0;
+  teamMembers(t).forEach(x => { cnt += (n.tickets[x.id] || []).length; delete n.tickets[x.id]; });
+  delete n.ranks[t]; delete n.per[t]; delete n.hand[t];
+  gf = null; closeSheet();
+  if (Object.keys(n.tickets).length ? await put('settings', 'raffle', n) : await del('settings', 'raffle')) toast(`${t}조 번호 ${cnt}장을 회수했어요.`);
 }
 let xf = null;
 function openExtra() {
@@ -1152,7 +1214,7 @@ function openExtra() {
     <button class="btn quiet" type="button" data-act="sheet-close">취소</button></form>`);
 }
 async function saveExtra() {
-  const m = meObj(), err = document.getElementById('xf-err'); if (!xf || !err || !m || !m.admin) return;
+  const err = document.getElementById('xf-err'); if (!xf || !err || !isMaster()) return;
   const who = document.getElementById('xf-who').value, ex = Object.assign({}, extraMap()), n = xf.n;
   err.hidden = true;
   if (!n) return showErr(err, '남은 번호가 없어요.');
@@ -1160,6 +1222,31 @@ async function saveExtra() {
   if (!who || !S.members[who]) return showErr(err, '받는 사람을 골라주세요.');
   ex[n] = who; closeSheet(); xf = null;
   if (await put('settings', 'extra', ex)) toast(`${S.members[who].name} 님에게 ${n}번을 줬어요.`);
+}
+
+/* 조별 진행 상황 줄. 판을 통째로 지우는 초기화 버튼은 마스터 페이지에만 붙는다. */
+function teamRows(reset) {
+  let rows = '';
+  for (let t = 1; t <= TEAMS; t++) {
+    const cs = teamCells(t), n = cs.filter(Boolean).length;
+    rows += `<div class="srow tc${t}"><span class="tape">${t}조</span><span><b>빙고 ${wonLines(cs).length}줄 · 동그라미 ${hitCells(cs).filter(Boolean).length}칸</b><p>채운 칸 ${n}/${CELLS} · 문제 ${kindCount(cs, 'problem')}/${QUOTA.problem} · 대결 ${kindCount(cs, 'duel')}/${QUOTA.duel} · 인증샷 ${cs[CENTER] ? 1 : 0}/1</p></span>${reset ? `<button data-act="reset-team" data-t="${t}">초기화</button>` : ''}</div>`;
+  }
+  return rows;
+}
+/* ── 마스터 화면 ─────────────────────────
+   다른 조 빙고판 공개, 추첨권 나눠 주기와 회수, 조별 초기화처럼 한 사람만 해야 하는 일을 모았다. */
+function masterView() {
+  const g = game(), open = boardsOpen(), o = (S.settings.main || {}).reveal, byHand = !!o && o.ph === g.phase;
+  return topbar() + `<a class="back" href="#">‹ 전체 조</a>
+  <section class="mission"><div class="mission-top"><span class="tape tc4">마스터</span></div><h1>마스터 페이지</h1>
+    <p>모든 조의 빙고판을 다 보고, 칸 채우는 시간에 고치거나 지울 수 있는 사람은 마스터뿐이에요. 운영진은 자기 조 판만 볼 수 있고, 빙고 시작과 진행은 운영진 페이지에서 해요.</p></section>
+  <div class="setting field row"><span class="label">다른 조 빙고판 모두에게 보이기<small>${open ? '지금은 누구나 다른 조의 문제 칸까지 볼 수 있어요.' : '지금은 다른 조의 문제 칸이 가려져 있어요.'} ${byHand ? '직접 바꿔 둔 상태예요. 빙고가 시작되거나 끝나면 다시 자동으로 돌아가요.' : g.phase === 'done' ? '빙고가 끝나서 저절로 켜졌어요.' : '빙고가 끝나면 저절로 켜져요.'}</small></span><button class="switch" role="switch" aria-checked="${open}" data-act="reveal" aria-label="다른 조 빙고판 모두에게 보이기"></button></div>
+  <a class="adminlink soft" href="#live">전체 빙고판<span>조를 누르면 그 조 빙고판이 열려요</span></a>
+  <section><h2 class="sec">추첨권</h2><p class="hint">빙고가 끝나면 ‘번호 뽑기’ 한 번으로 순위대로 나눠 줘요. 잘못 나갔으면 전체 회수를 누른 뒤 다시 뽑거나 조별로 직접 나눠 주세요.</p></section>
+  ${tieCard()}${raffleCtl()}
+  <a class="adminlink soft" href="#raffle">추첨권 번호<span>누가 몇 번을 받았는지 보기</span></a>
+  <section><h2 class="sec">조별 빙고판 초기화</h2><p class="hint">초기화하면 그 조가 채운 칸과 사진, 댓글이 모두 지워지고 되살릴 수 없어요.</p></section>
+  <div class="group">${teamRows(true)}</div>`;
 }
 
 /* ── 운영진 화면 ───────────────────────── */
@@ -1173,7 +1260,7 @@ function adminView() {
       const list = all.filter(m => (m.team || 0) === t);
       if (t === 0 && !list.length) continue;
       h += `<div class="group tc${t}"><div class="group-h">${t ? `<span class="tape">${t}조</span>` : '<b>미배정</b>'}<span>${list.length}명</span></div>` +
-        (list.length ? list.map(m => `<button class="prow" data-act="m-edit" data-id="${m.id}"><b>${esc(m.name)}${m.admin ? '<em>운영진</em>' : ''}</b><span>수정</span></button>`).join('') : '<p class="empty">아직 조원이 없어요</p>') + `</div>`;
+        (list.length ? list.map(m => `<button class="prow" data-act="m-edit" data-id="${m.id}"><b>${esc(m.name)}${m.master ? '<em>마스터</em>' : m.admin ? '<em>운영진</em>' : ''}</b><span>수정</span></button>`).join('') : '<p class="empty">아직 조원이 없어요</p>') + `</div>`;
     }
   } else if (adminTab === 'problems') {
     const all = problemList(), usedBy = {};
@@ -1185,7 +1272,7 @@ function adminView() {
       const name = SECTORS[s];
       const list = all.filter(p => p.sector === s);
       h += `<div class="group"><div class="group-h"><b>${name}</b><span>${list.length}개</span></div>` +
-        (list.length ? list.map(p => `<button class="prow" data-act="pr-edit" data-id="${p.id}"><b>${swatch(p)}${lv(p.level)[0]} · ${hd(p.hold)[0]} 홀드${p.note ? `<small>${esc(p.note)}</small>` : ''}</b><span>${usedBy[p.id] ? usedBy[p.id] + '개 조가 올림' : '수정'}</span></button>`).join('') : '<p class="empty">아직 문제가 없어요</p>') + `</div>`;
+        (list.length ? list.map(p => `<button class="prow" data-act="pr-edit" data-id="${p.id}"><b>${swatch(p)}${lv(p.level)[0]} · ${hd(p.hold)[0]} 홀드${p.note ? `<small>${esc(p.note)}</small>` : ''}</b><span>${isMaster() && usedBy[p.id] ? usedBy[p.id] + '개 조가 올림' : '수정'}</span></button>`).join('') : '<p class="empty">아직 문제가 없어요</p>') + `</div>`;
     });
   } else if (adminTab === 'missions') {
     const all = missionList(), on = all.filter(m => m.active !== false).length;
@@ -1196,7 +1283,7 @@ function adminView() {
   } else {
     const g = game(), tt = turnTeam();
     h += `<a class="adminlink" href="#live">전체 빙고판<span>모든 조 판을 실시간으로 보기</span></a>`;
-    h += `<a class="adminlink soft" href="#raffle">추첨권 번호<span>번호 뽑기 · ${EXTRA_FROM}~${EXTRA_TO}번 직접 주기</span></a>`;
+    h += `<a class="adminlink soft" href="#raffle">추첨권 번호<span>${isMaster() ? '번호 뽑기 · 조에 나눠 주기 · 전체 회수' : '전체 명단 · 받은 번호 보기'}</span></a>`;
     h += tieCard();
     if (g.phase === 'fill') {
       h += `<div class="setting gctl"><span class="label">지금은 칸 채우는 시간<small>시간이 끝나면 빙고를 시작하세요. 시작하면 조원들은 칸을 더 채우거나 옮길 수 없고, 정한 순서대로 문제를 하나씩 불러요. ${GOAL_LINES}줄을 먼저 완성한 조부터 끝나고 순위가 정해져요.</small></span>
@@ -1209,16 +1296,11 @@ function adminView() {
         ${g.calls.length ? `<button class="btn ghost" data-act="g-undo">마지막 동그라미 취소</button>` : ''}
         ${g.phase === 'call' ? `<button class="btn ghost" data-act="g-end">빙고 끝내기</button>` : ''}
         <button class="btn danger" data-act="g-reset">칸 채우는 시간으로 되돌리기</button>
-        <p class="hint">조원이 직접 자기 판에서 문제 칸을 눌러 동그라미를 쳐요. 운영진은 차례인 조의 판에 들어가서 대신 쳐줄 수도 있어요. 되돌리면 문제 칸에 친 동그라미가 모두 지워지고, 다시 칸을 채우거나 고칠 수 있어요.</p></div>`;
+        <p class="hint">조원이 직접 자기 판에서 문제 칸을 눌러 동그라미를 쳐요. 마스터는 차례인 조의 판에 들어가서 대신 쳐줄 수도 있어요. 되돌리면 문제 칸에 친 동그라미가 모두 지워지고, 다시 칸을 채우거나 고칠 수 있어요.</p></div>`;
       if (g.calls.length) h += `<div class="group"><div class="group-h"><b>동그라미 친 문제</b><span>최근 순</span></div>${g.calls.slice().reverse().slice(0, 12).map((c, k) => `<div class="prow"><b>${g.calls.length - k}. ${esc(c.name)}</b><span>${c.t}조</span></div>`).join('')}</div>`;
     }
-    let rows = '';
-    for (let t = 1; t <= TEAMS; t++) {
-      const cs = teamCells(t), n = cs.filter(Boolean).length;
-      rows += `<div class="srow tc${t}"><span class="tape">${t}조</span><span><b>빙고 ${wonLines(cs).length}줄 · 동그라미 ${hitCells(cs).filter(Boolean).length}칸</b><p>채운 칸 ${n}/${CELLS} · 문제 ${kindCount(cs, 'problem')}/${QUOTA.problem} · 대결 ${kindCount(cs, 'duel')}/${QUOTA.duel} · 인증샷 ${cs[CENTER] ? 1 : 0}/1</p></span><button data-act="reset-team" data-t="${t}">초기화</button></div>`;
-    }
     const usedMb = Math.round(usedBytes() / 1048576);
-    h += `<div class="group">${rows}</div>
+    h += `<div class="group">${teamRows(false)}</div>
       <div class="setting"><span class="label">올라온 사진 약 ${usedMb} MB<small>${STORAGE_BUDGET_MB} MB를 넘으면 더 올릴 수 없어요.</small></span><div class="meter"><i style="width:${Math.min(100, Math.round(usedMb / STORAGE_BUDGET_MB * 100))}%"></i></div></div>
       <div class="setting field row"><span class="label">한 사람이 채우는 칸 수 정해 두기<small>6명인 조는 한 사람이 문제 3칸 · 대결 1칸씩, 5명인 조는 문제 3~4칸 · 대결 1~2칸씩 채워요. 조원 수는 참가자 탭 기준이에요. 끄면 한 사람이 몇 칸이든 채울 수 있어요.</small></span><button class="switch" role="switch" aria-checked="${setting('perPerson')}" data-act="toggle-set" data-key="perPerson" aria-label="한 사람이 채우는 칸 수 정해 두기"></button></div>`;
   }
@@ -1242,7 +1324,7 @@ function openStart() {
   const g = game();
   go = { order: g.order.length === TEAMS ? g.order.slice() : Array.from({ length: TEAMS }, (_, k) => k + 1) };
   openSheet(`<div style="display:flex;flex-direction:column;gap:14px">
-    <h2>빙고 시작</h2><p class="sheet-sub" style="margin-top:-6px">동그라미를 칠 조 순서를 정해주세요. 시작하면 운영진을 포함해 아무도 칸을 채우거나 옮기거나 고칠 수 없어요.</p>
+    <h2>빙고 시작</h2><p class="sheet-sub" style="margin-top:-6px">동그라미를 칠 조 순서를 정해주세요. 시작하면 마스터를 포함해 아무도 칸을 채우거나 옮기거나 고칠 수 없어요.</p>
     <div class="group" id="go-list">${goRows()}</div>
     <button class="btn ghost" data-act="go-shuffle">무작위로 섞기</button>
     <button class="btn" data-act="go-start">이 순서로 빙고 시작</button>
@@ -1595,8 +1677,8 @@ function confetti(cv) {
 function splash(m) {
   fxEl.innerHTML = `<div class="fx splash tc${m.team || 0}"><div class="fx-body">
     <p class="lead">${esc(m.name)} 님은</p>
-    ${m.team ? `<h2>${m.team}<small>조</small></h2>` : `<h2 class="word">${m.admin ? '운영진' : '조 미정'}</h2>`}
-    <p class="small">${m.team ? '같은 조 친구들과 16칸 빙고판을 채워보세요.' : m.admin ? '모든 조의 빙고판과 참가자, 미션을 관리할 수 있어요.' : '운영진이 조를 정해주면 빙고판이 열려요.'}</p>
+    ${m.team ? `<h2>${m.team}<small>조</small></h2>` : `<h2 class="word">${m.master ? '마스터' : m.admin ? '운영진' : '조 미정'}</h2>`}
+    <p class="small">${m.team ? `같은 조 친구들과 ${CELLS}칸 빙고판을 채워보세요.` : m.master ? '모든 조의 빙고판과 참가자, 미션을 관리할 수 있어요.' : m.admin ? '참가자와 문제, 대결 미션을 관리하고 빙고를 진행할 수 있어요.' : '운영진이 조를 정해주면 빙고판이 열려요.'}</p>
     <button class="btn" data-act="fx-close">시작하기</button></div></div>`;
   fxEl.hidden = false; document.body.classList.add('noscroll');
 }
@@ -1605,11 +1687,12 @@ function closeFx() { fxEl.hidden = true; fxEl.innerHTML = ''; if (sheetEl.hidden
 /* 운영진 시트 */
 function openMember(id) {
   const m = id ? S.members[id] : null, team = m ? (m.team || 0) : 0;
+  if (m && m.master && !isMaster()) return toast('마스터 계정은 마스터만 고칠 수 있어요.');
   openSheet(`<form id="member-form" data-id="${id || ''}">
     <h2>${m ? '참가자 수정' : '참가자 추가'}</h2>
     <div class="field"><label for="mf-name">이름</label><input class="inp" id="mf-name" maxlength="12" required value="${esc(m ? m.name : '')}" placeholder="예: 박민혁"></div>
     <div class="field"><span class="label">조</span><div class="seg" id="mf-team">${Array.from({ length: TEAMS + 1 }, (_, t) => `<button type="button" class="tc${t}" data-act="pick" data-v="${t}" aria-pressed="${t === team}">${t ? t + '조' : '미배정'}</button>`).join('')}</div></div>
-    <div class="field row"><span class="label">운영진 권한<small>참가자와 미션을 관리하고, 칸 채우는 시간에는 모든 조의 빙고판을 고칠 수 있어요</small></span><button type="button" class="switch" id="mf-admin" role="switch" aria-checked="${!!(m && m.admin)}" data-act="switch" aria-label="운영진 권한"></button></div>
+    <div class="field row"><span class="label">운영진 권한<small>참가자와 문제, 대결 미션을 관리하고 빙고를 시작하고 진행할 수 있어요. 빙고판은 자기 조 것만 보고 고쳐요</small></span><button type="button" class="switch" id="mf-admin" role="switch" aria-checked="${!!(m && m.admin)}" data-act="switch" aria-label="운영진 권한"></button></div>
     <p class="err" id="mf-err" hidden></p>
     <button class="btn" type="submit">저장</button>
     ${m && m.pwh ? `<button class="btn ghost" type="button" data-act="m-pw" data-id="${id}">비밀번호를 0000으로 되돌리기</button>` : ''}
@@ -1649,7 +1732,7 @@ async function saveBulk() {
   let add = 0, moved = 0;
   for (const r of rows) {
     const ex = memberList().find(m => norm(m.name) === r.name);
-    if (ex) { if (r.team && ex.team !== r.team) { await put('members', ex.id, Object.assign({}, S.members[ex.id], { team: r.team }), true); moved++; } }
+    if (ex) { if (r.team && ex.team !== r.team && (!ex.master || isMaster())) { await put('members', ex.id, Object.assign({}, S.members[ex.id], { team: r.team }), true); moved++; } }
     else { await put('members', uid('m-'), { name: r.name, team: r.team, admin: false }, true); add++; }
   }
   render(); toast(`${add}명 추가${moved ? `, ${moved}명 조 변경` : ''}했어요.`);
@@ -1736,7 +1819,7 @@ document.addEventListener('click', async e => {
   switch (d.act) {
     case 'retry': boot(); break;
     case 'logout': meId = null; try { localStorage.removeItem('oreurak:me'); } catch (x) {} location.hash = ''; render(); break;
-    case 'sheet-close': if (!sheetLock) { closeSheet(); pf = null; qf = null; go = null; prf = null; xf = null; tf = null; cf = null; } break;
+    case 'sheet-close': if (!sheetLock) { closeSheet(); pf = null; qf = null; go = null; prf = null; xf = null; gf = null; tf = null; cf = null; } break;
     case 'fx-close': closeFx(); break;
     case 'zoom': e.preventDefault(); openZoom(d.p); break;
     case 'zoom-toggle': { const big = el.classList.toggle('big'); if (big) { el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2; el.scrollTop = (el.scrollHeight - el.clientHeight) / 2; } break; }
@@ -1780,15 +1863,19 @@ document.addEventListener('click', async e => {
     case 'pw-open': openPw(); break;
     case 'm-pw': { const mm = S.members[d.id]; if (mm) { const c = Object.assign({}, mm); delete c.pwh; closeSheet(); if (await put('members', d.id, c)) toast('비밀번호를 0000으로 되돌렸어요.'); } break; }
     case 'rf-draw': if (!raffle() || armed(el, '한 번 더 누르면 번호가 새로 바뀌어요')) await drawRaffle(); break;
-    case 'rf-clear': if (meObj().admin && armed(el, '한 번 더 누르면 번호가 지워져요')) { if (await del('settings', 'raffle')) toast('뽑은 번호를 지웠어요.'); } break;
-    case 'rf-xadd': if (meObj().admin) openExtra(); break;
-    case 'rf-xdel': if (meObj().admin) { const ex = Object.assign({}, extraMap()); delete ex[d.id]; if (await put('settings', 'extra', ex)) toast(`${d.id}번을 뺐어요.`); } break;
+    case 'rf-wipe': if (isMaster() && armed(el, '한 번 더 누르면 모든 번호가 지워져요')) { let ok = true; if (raffle()) ok = await del('settings', 'raffle'); if (ok && Object.keys(extraMap()).length) ok = await del('settings', 'extra'); if (ok) toast('추첨권을 모두 회수했어요.'); } break;
+    case 'rf-give': openGive(); break;
+    case 'gf-t': case 'gf-n': if (gf) { gf[d.act === 'gf-t' ? 't' : 'n'] = +d.v; el.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); armedState = null; showArmed(); drawGive(); } break;
+    case 'gf-take': if (gf && armed(el, `한 번 더 누르면 ${gf.t}조 번호가 지워져요`)) await takeTeam(); break;
+    case 'reveal': if (isMaster()) { const cur = S.settings.main || {}; await put('settings', 'main', Object.assign({}, cur, { reveal: { on: !boardsOpen(), ph: game().phase } })); } break;
+    case 'rf-xadd': if (isMaster()) openExtra(); break;
+    case 'rf-xdel': if (isMaster()) { const ex = Object.assign({}, extraMap()); delete ex[d.id]; if (await put('settings', 'extra', ex)) toast(`${d.id}번을 뺐어요.`); } break;
     case 'xf-n': if (xf) { xf.n = +d.v; el.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); } break;
     case 'tb-open': openTie(+d.id); break;
     case 'tb-move': if (tf) { const k = +d.k, j = k + (+d.d), o = tf.order; if (j >= 0 && j < o.length) { [o[k], o[j]] = [o[j], o[k]]; const box = document.getElementById('tb-list'); if (box) box.innerHTML = tieRows(); } } break;
     case 'tb-save': await saveTie(); break;
     case 'tb-clear': if (meObj().admin && armed(el, '한 번 더 누르면 공동 순위로 돌아가요')) { const g = Object.assign({}, game()); delete g.tb; if (await put('settings', 'game', g)) toast('공동 순위로 되돌렸어요.'); } break;
-    case 'veiled': toast('다른 조의 문제 칸은 빙고가 끝난 뒤에 볼 수 있어요.'); break;
+    case 'veiled': toast(veilMsg()); break;
     case 'cm-open': openComment(t, i); break;
     case 'cm-del': { const x = S.comments[d.id], me = meObj(); if (x && me && (x.by === me.id || me.admin) && armed(el, '한 번 더')) { if (await del('comments', d.id)) toast('댓글을 지웠어요.'); } break; }
     case 'tab': adminTab = d.tab; render(); break;
@@ -1799,8 +1886,8 @@ document.addEventListener('click', async e => {
     case 'q-del': if (armed(el, '한 번 더 누르면 삭제돼요')) { const gone = S.missions[d.id]; closeSheet(); qf = null; if (await del('missions', d.id)) { if (gone) dropMissionImg(gone.img); toast('삭제했어요.'); } } break;
     case 'pick': el.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); break;
     case 'switch': el.setAttribute('aria-checked', el.getAttribute('aria-checked') !== 'true'); break;
-    case 'toggle-set': { const cur = S.settings.main || {}; await put('settings', 'main', Object.assign({}, cur, { [d.key]: cur[d.key] === false })); break; }
-    case 'reset-team': if (armed(el, '한 번 더')) { const ks = Object.keys(S.cells).filter(k => S.cells[k].team === t); for (const k of ks) { dropMedia(S.cells[k]); await del('cells', k); } dropComments(x => x.t === t); toast(`${t}조 빙고판을 초기화했어요.`); } break;
+    case 'toggle-set': if (meObj() && meObj().admin) { const cur = S.settings.main || {}; await put('settings', 'main', Object.assign({}, cur, { [d.key]: cur[d.key] === false })); } break;
+    case 'reset-team': if (isMaster() && armed(el, '한 번 더')) { const ks = Object.keys(S.cells).filter(k => S.cells[k].team === t); for (const k of ks) { dropMedia(S.cells[k]); await del('cells', k); } dropComments(x => x.t === t); toast(`${t}조 빙고판을 초기화했어요.`); } break;
   }
 });
 document.addEventListener('change', e => {
@@ -1832,6 +1919,7 @@ document.addEventListener('submit', e => {
   else if (f.id === 'problem-form') saveProblem(f);
   else if (f.id === 'pw-form') savePw();
   else if (f.id === 'extra-form') saveExtra();
+  else if (f.id === 'give-form') saveGive();
   else if (f.id === 'cm-form') saveComment();
 });
 /* ── 칸 자리 바꾸기 ─────────────────────────
