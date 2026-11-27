@@ -1239,7 +1239,7 @@ function masterView() {
   const g = game(), open = boardsOpen(), o = (S.settings.main || {}).reveal, byHand = !!o && o.ph === g.phase;
   return topbar() + `<a class="back" href="#">‹ 전체 조</a>
   <section class="mission"><div class="mission-top"><span class="tape tc4">마스터</span></div><h1>마스터 페이지</h1>
-    <p>모든 조의 빙고판을 다 보고, 칸 채우는 시간에 고치거나 지울 수 있는 사람은 마스터뿐이에요. 운영진은 자기 조 판만 볼 수 있고, 빙고 시작과 진행은 운영진 페이지에서 해요.</p></section>
+    <p>모든 조의 빙고판을 다 보고, 칸 채우는 시간에 고치거나 지울 수 있는 사람은 마스터뿐이에요. 운영진은 자기 조 판만 볼 수 있어요. 빙고 시작도 마스터만 할 수 있고, 운영진 페이지의 ‘빙고 진행’에서 눌러요.</p></section>
   <div class="setting field row"><span class="label">다른 조 빙고판 모두에게 보이기<small>${open ? '지금은 누구나 다른 조의 문제 칸까지 볼 수 있어요.' : '지금은 다른 조의 문제 칸이 가려져 있어요.'} ${byHand ? '직접 바꿔 둔 상태예요. 빙고가 시작되거나 끝나면 다시 자동으로 돌아가요.' : g.phase === 'done' ? '빙고가 끝나서 저절로 켜졌어요.' : '빙고가 끝나면 저절로 켜져요.'}</small></span><button class="switch" role="switch" aria-checked="${open}" data-act="reveal" aria-label="다른 조 빙고판 모두에게 보이기"></button></div>
   <a class="adminlink soft" href="#live">전체 빙고판<span>조를 누르면 그 조 빙고판이 열려요</span></a>
   <section><h2 class="sec">추첨권</h2><p class="hint">빙고가 끝나면 ‘번호 뽑기’ 한 번으로 순위대로 나눠 줘요. 잘못 나갔으면 전체 회수를 누른 뒤 다시 뽑거나 조별로 직접 나눠 주세요.</p></section>
@@ -1286,8 +1286,8 @@ function adminView() {
     h += `<a class="adminlink soft" href="#raffle">추첨권 번호<span>${isMaster() ? '번호 뽑기 · 조에 나눠 주기 · 전체 회수' : '전체 명단 · 받은 번호 보기'}</span></a>`;
     h += tieCard();
     if (g.phase === 'fill') {
-      h += `<div class="setting gctl"><span class="label">지금은 칸 채우는 시간<small>시간이 끝나면 빙고를 시작하세요. 시작하면 조원들은 칸을 더 채우거나 옮길 수 없고, 정한 순서대로 문제를 하나씩 불러요. ${GOAL_LINES}줄을 먼저 완성한 조부터 끝나고 순위가 정해져요.</small></span>
-        <button class="btn" data-act="g-start">빙고 시작</button></div>`;
+      h += `<div class="setting gctl"><span class="label">지금은 칸 채우는 시간<small>시간이 끝나면 빙고를 시작하세요. 시작하면 조원들은 칸을 더 채우거나 옮길 수 없고, 정한 순서대로 문제를 하나씩 불러요. ${GOAL_LINES}줄을 먼저 완성한 조부터 끝나고 순위가 정해져요.${isMaster() ? '' : ' 빙고 시작은 마스터만 할 수 있어요.'}</small></span>
+        ${isMaster() ? '<button class="btn" data-act="g-start">빙고 시작</button>' : ''}</div>`;
     } else {
       const cur = g.order.length ? g.turn % g.order.length : 0;
       h += `<div class="setting gctl"><span class="label">${g.phase === 'call' ? `빙고 진행 중 · 지금 ${tt}조 차례` : '빙고 종료'}<small>동그라미 친 문제 ${g.calls.length}개</small></span>
@@ -1321,6 +1321,7 @@ function nextTurn(g, from) {
 let go = null;
 const goRows = () => go.order.map((t, k) => `<div class="orow tc${t}"><i>${k + 1}</i><span class="tape">${t}조</span><span class="om">문제 칸 ${kindCount(teamCells(t), 'problem')}개</span><button type="button" data-act="go-move" data-k="${k}" data-d="-1" aria-label="${t}조 위로"${k ? '' : ' disabled'}>▲</button><button type="button" data-act="go-move" data-k="${k}" data-d="1" aria-label="${t}조 아래로"${k < go.order.length - 1 ? '' : ' disabled'}>▼</button></div>`).join('');
 function openStart() {
+  if (!isMaster()) return toast('빙고 시작은 마스터만 할 수 있어요.');
   const g = game();
   go = { order: g.order.length === TEAMS ? g.order.slice() : Array.from({ length: TEAMS }, (_, k) => k + 1) };
   openSheet(`<div style="display:flex;flex-direction:column;gap:14px">
@@ -1332,7 +1333,7 @@ function openStart() {
 }
 function drawStart() { const box = document.getElementById('go-list'); if (box && go) box.innerHTML = goRows(); }
 async function startGame() {
-  if (!go || !meObj() || !meObj().admin) return;
+  if (!go || !isMaster()) return;
   const g = { phase: 'call', order: go.order.slice(), turn: 0, calls: [], startedAt: Date.now() };
   const k = nextTurn(g, 0);
   if (k < 0) return toast('동그라미 칠 문제 칸이 하나도 없어요. 조들이 문제 칸을 먼저 채워야 해요.');
@@ -1692,7 +1693,7 @@ function openMember(id) {
     <h2>${m ? '참가자 수정' : '참가자 추가'}</h2>
     <div class="field"><label for="mf-name">이름</label><input class="inp" id="mf-name" maxlength="12" required value="${esc(m ? m.name : '')}" placeholder="예: 박민혁"></div>
     <div class="field"><span class="label">조</span><div class="seg" id="mf-team">${Array.from({ length: TEAMS + 1 }, (_, t) => `<button type="button" class="tc${t}" data-act="pick" data-v="${t}" aria-pressed="${t === team}">${t ? t + '조' : '미배정'}</button>`).join('')}</div></div>
-    <div class="field row"><span class="label">운영진 권한<small>참가자와 문제, 대결 미션을 관리하고 빙고를 시작하고 진행할 수 있어요. 빙고판은 자기 조 것만 보고 고쳐요</small></span><button type="button" class="switch" id="mf-admin" role="switch" aria-checked="${!!(m && m.admin)}" data-act="switch" aria-label="운영진 권한"></button></div>
+    <div class="field row"><span class="label">운영진 권한<small>참가자와 문제, 대결 미션을 관리하고 시작된 빙고의 진행을 도울 수 있어요. 빙고 시작은 마스터만 하고, 빙고판은 자기 조 것만 보고 고쳐요</small></span><button type="button" class="switch" id="mf-admin" role="switch" aria-checked="${!!(m && m.admin)}" data-act="switch" aria-label="운영진 권한"></button></div>
     <p class="err" id="mf-err" hidden></p>
     <button class="btn" type="submit">저장</button>
     ${m && m.pwh ? `<button class="btn ghost" type="button" data-act="m-pw" data-id="${id}">비밀번호를 0000으로 되돌리기</button>` : ''}
