@@ -531,6 +531,7 @@ function localAdapter() {
     },
     watch(onRow, onAll) { window.addEventListener('storage', e => { if (e.key === KEY) onAll(); }); },
     async set(col, id, data) { const o = read(); o[col + '/' + id] = data; write(o); },
+    async setMany(rows) { const o = read(); rows.forEach(r => { o[r.col + '/' + r.id] = r.data; }); write(o); },
     async remove(col, id) { const o = read(); delete o[col + '/' + id]; write(o); },
     async upload(path, blob) { await tx('readwrite', s => s.put(blob, path)); return path; },
     async url(path) { const b = await tx('readonly', s => s.get(path)); return b ? URL.createObjectURL(b) : ''; },
@@ -554,6 +555,8 @@ function supabaseAdapter(cfg) {
       }).subscribe(status => { if (status === 'SUBSCRIBED') { if (joined) onAll(); joined = true; } });
     },
     async set(col, id, data) { ok(await sb.from('docs').upsert({ col, id, data, updated_at: new Date().toISOString() })); },
+    /* 여러 줄을 한 요청으로 쓴다. 전부 들어가거나 전부 안 들어간다. */
+    async setMany(rows) { const at = new Date().toISOString(); ok(await sb.from('docs').upsert(rows.map(r => ({ col: r.col, id: r.id, data: r.data, updated_at: at })))); },
     async remove(col, id) { ok(await sb.from('docs').delete().eq('col', col).eq('id', id)); },
     async upload(path, blob) { ok(await bucket().upload(path, blob, { contentType: blob.type || 'application/octet-stream', cacheControl: '31536000' })); return path; },
     async url(path) { return bucket().getPublicUrl(path).data.publicUrl; },
@@ -661,7 +664,7 @@ function dropComments(pred) {
 async function resync(force) {
   const at = epoch;
   const rows = await adapter.load();
-  if (at !== epoch && !force) return;
+  if ((at !== epoch || swapPending) && !force) return;   /* 저장을 기다리는 자리 바꾸기가 있으면 화면을 서버 상태로 되돌리지 않는다 */
   const n = { members: {}, missions: {}, problems: {}, cells: {}, settings: {}, comments: {} };
   rows.forEach(r => { if (n[r.col]) n[r.col][r.id] = r.data; });
   Object.assign(S, n);
@@ -701,6 +704,7 @@ async function boot() {
       const full = () => { clearTimeout(pending); pending = setTimeout(() => resync().then(render).catch(() => {}), 150); };
       adapter.watch(row => {
         if (!ready || !S[row.col]) return;
+        if (row.col === 'cells' && row.data && row.data.sw && staleStamps.has(row.data.sw)) return;   /* 내가 이미 다시 옮긴 칸의 늦은 메아리 */
         epoch++;
         if (row.data === null) delete S[row.col][row.id]; else S[row.col][row.id] = row.data;
         clearTimeout(paint); paint = setTimeout(render, 80);
@@ -1956,7 +1960,7 @@ function dragMove(x, y) {
 }
 function dragEnd(commit) {
   if (!drag) return;
-  const d = drag; drag = null; clearTimeout(d.timer);
+  const d = drag; drag = null; clearTimeout(d.timer); if (d.raf) cancelAnimationFrame(d.raf);
   if (d.ghost) d.ghost.remove();
   if (d.over) d.over.classList.remove('drop');
   d.cell.classList.remove('dragging'); document.body.classList.remove('dragging');
@@ -1964,18 +1968,37 @@ function dragEnd(commit) {
   if (commit && d.on && d.over) swapCells(d.t, d.i, +d.over.dataset.i);
   else if (d.stale) render();
 }
-async function swapCells(t, a, b) {
+/* 화면부터 바꾸고, 저장은 두 칸을 한 요청에 묶어서 순서대로 하나씩 보낸다.
+   예전에는 두 칸을 따로 저장하고 저장이 끝나야 화면이 바뀌었다. 그래서 느린 회선에서 화면이 안 바뀐 줄 알고 한 번 더 끌거나
+   두 번째 저장이 실패하면 한 칸이 복사되고 다른 칸이 사라졌다.
+   빈 자리로 옮길 때도 원래 자리를 지우지 않고 '빈 칸' 표시를 같이 써서 한 요청으로 끝낸다(kind 가 없어서 빈 칸으로 보인다).
+   저장이 하나라도 실패하면 뒤에 줄 선 것들은 버리고 서버 상태로 되돌린다. */
+let swapChain = Promise.resolve(), swapGen = 0, swapPending = 0;
+const staleStamps = new Set();
+function swapCells(t, a, b) {
   if (a === b || a === CENTER || b === CENTER || !canChange(t)) return render();
   const cells = teamCells(t), ca = cells[a], cb = cells[b];
   if (!ca) return render();
-  const ida = t + '-' + a, idb = t + '-' + b;
+  const ida = t + '-' + a, idb = t + '-' + b, sw = uid('');
   if (!cb && S.cells[idb]) dropMedia(S.cells[idb]);   /* 예전 방식 칸이 그 자리에 남아 있으면 치운다 */
-  popCell = idb;
-  const ok = await put('cells', idb, Object.assign({}, ca, { idx: b }), true)
-    && (cb ? await put('cells', ida, Object.assign({}, cb, { idx: a }), true) : await del('cells', ida));
-  render();
-  if (!ok) return;
-  toast('자리를 바꿨어요.');
+  [ida, idb].forEach(k => { const c = S.cells[k]; if (c && c.sw) staleStamps.add(c.sw); });
+  const rows = [{ col: 'cells', id: idb, data: Object.assign({}, ca, { idx: b, sw: sw + 'b' }) },
+    { col: 'cells', id: ida, data: cb ? Object.assign({}, cb, { idx: a, sw: sw + 'a' }) : { team: t, idx: a, done: false, sw: sw + 'a' } }];
+  epoch++; rows.forEach(r => { S.cells[r.id] = r.data; });
+  popCell = idb; render();
+  const gen = swapGen; swapPending++;
+  swapChain = swapChain.then(async () => {
+    let ok = gen === swapGen;
+    try { if (ok) await adapter.setMany(rows); }
+    catch (e) {
+      console.error(e); ok = false; swapGen++;
+      toast('자리를 바꾸지 못했어요. 연결 상태를 확인하고 다시 해주세요.');
+      epoch++; try { await resync(true); } catch (x) {}
+      render();
+    }
+    if (!--swapPending && ok) toast('자리를 바꿨어요.');
+  });
+  return swapChain;
 }
 app.addEventListener('touchstart', e => {
   if (e.touches.length !== 1) return dragEnd(false);
@@ -1985,11 +2008,17 @@ app.addEventListener('touchstart', e => {
 app.addEventListener('touchmove', e => {
   if (!drag) return;
   const p = e.touches[0];
-  if (drag.on) { e.preventDefault(); dragMove(p.clientX, p.clientY); }
+  if (drag.on) {   /* 손가락이 움직일 때마다가 아니라 화면을 그릴 때 한 번만 따라간다(느린 폰에서 끊기지 않게) */
+    e.preventDefault(); drag.x = p.clientX; drag.y = p.clientY;
+    if (!drag.raf) drag.raf = requestAnimationFrame(() => { if (drag) { drag.raf = 0; dragMove(drag.x, drag.y); } });
+  }
   else if (Math.hypot(p.clientX - drag.sx, p.clientY - drag.sy) > 10) dragEnd(false);   /* 끌기가 아니라 스크롤 */
   else { drag.x = p.clientX; drag.y = p.clientY; }
 }, { passive: false });
-app.addEventListener('touchend', e => { if (drag && drag.on && e.cancelable) e.preventDefault(); dragEnd(true); });
+app.addEventListener('touchend', e => {
+  if (drag && drag.on) { if (e.cancelable) e.preventDefault(); dragMove(drag.x, drag.y); }   /* 손을 뗀 자리를 마지막으로 한 번 더 확인 */
+  dragEnd(true);
+});
 app.addEventListener('touchcancel', () => dragEnd(false));
 app.addEventListener('pointerdown', e => {
   if (e.pointerType !== 'mouse' || e.button !== 0) return;
