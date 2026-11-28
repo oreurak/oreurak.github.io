@@ -974,7 +974,7 @@ function cellView(t, i) {
   }
   const who = (c.by || []).map(id => S.members[id]).filter(Boolean).map(m => m.name);
   h += `<section class="mission tc${t}">${top}`;
-  if (c.kind === 'duel') h += `<span class="kicker">${c.vs ? c.vs + '조와 대결 · 승리' : '팀 대결 승리'}</span><h1>${esc(c.mTitle)}</h1>${c.mDesc ? `<p>${esc(c.mDesc)}</p>` : ''}${picTag(missionImg(c))}`;
+  if (c.kind === 'duel') h += `<span class="kicker">${c.vs ? `${c.vs}조${S.members[c.vsBy] ? ' ' + esc(S.members[c.vsBy].name) + ' 님' : ''}과 대결 · 승리` : '팀 대결 승리'}</span><h1>${esc(c.mTitle)}</h1>${c.mDesc ? `<p>${esc(c.mDesc)}</p>` : ''}${picTag(missionImg(c))}`;
   else if (c.kind === 'photo') h += `<h1>팀 인증샷</h1>`;
   else if (hasProb(c)) h += `<span class="kicker">완등한 문제</span><h1>${esc(SECTORS[c.sector] || '')}</h1>
     <div class="ptags"><span>${dot(lv(c.level)[1])}난이도 ${lv(c.level)[0]}</span><span>${dot(hd(c.hold)[1])}홀드 ${hd(c.hold)[0]}</span></div>${c.note ? `<p>${esc(c.note)}</p>` : ''}`;
@@ -1505,7 +1505,7 @@ function openProof(t, i, kind) {
   const cells = teamCells(t), c = cells[i];
   kind = c ? c.kind : (i === CENTER ? 'photo' : kind);
   if (!KIND[kind] || (kind === 'photo') !== (i === CENTER)) return;
-  pf = { t, i, kind, edit: !!c, media: (c && c.media || []).map(m => Object.assign({}, m)), by: new Set(c && c.by || []), mission: c && c.missionId || '', vs: c && c.vs || 0, busy: false,
+  pf = { t, i, kind, edit: !!c, media: (c && c.media || []).map(m => Object.assign({}, m)), by: new Set(c && c.by || []), mission: c && c.missionId || '', vs: c && c.vs || 0, vsBy: c && c.vsBy || '', busy: false,
     problem: c && c.problemId || '', sector: hasProb(c) ? c.sector : null, level: hasProb(c) ? c.level : null };
   const members = teamMembers(t);
   const whoChips = sh => (members.length ? members.map(m => { const k = sh.n(m.id), on = pf.by.has(m.id); return `<button type="button" class="chip" data-act="pf-who" data-id="${m.id}" aria-pressed="${on}"${k >= sh.max(m.id) && !on ? ' disabled' : ''}>${esc(m.name)}<small>${k}${sh.on ? '/' + sh.max(m.id) : ''}</small></button>`; }).join('') : '<p class="hint">이 조에 등록된 조원이 없어요.</p>');
@@ -1530,7 +1530,8 @@ function openProof(t, i, kind) {
     head = '팀 대결 승리';
     body = `<div class="field"><span class="label">어떤 대결에서 이겼나요?</span><div class="group" id="pf-missions">${list.length ? list.map(m => `<button type="button" class="qrow${m.img ? ' pic' : ''}" data-act="pf-mission" data-id="${m.id}" aria-pressed="${m.id === pf.mission}"><i>${m.no}</i><span class="qm"><b>${esc(m.title)}</b><p>${esc(m.desc)}</p></span>${qthumb(m, false)}<em></em></button>`).join('') : '<p class="empty" style="padding-top:14px">고를 수 있는 대결 미션이 없어요.</p>'}</div></div>
       <div class="field"><span class="label">상대 조</span><div class="seg six" id="pf-vs">${Array.from({ length: TEAMS }, (_, k) => k + 1).filter(v => v !== t).map(v => `<button type="button" data-act="pf-vs" data-v="${v}" aria-pressed="${pf.vs === v}">${v}조</button>`).join('')}</div></div>
-      <div class="field"><span class="label">누가 나갔나요?<small>${sh.on ? `한 사람이 ${shareTxt(sh, '칸')} 채워요` : '한 명을 골라주세요'}</small></span>
+      <div class="field"><span class="label">상대 조에서 누가 나왔나요?<small>한 명을 골라주세요</small></span><div class="chips" id="pf-vsby"></div></div>
+      <div class="field"><span class="label">우리 조에서 누가 나갔나요?<small>${sh.on ? `한 사람이 ${shareTxt(sh, '칸')} 채워요` : '한 명을 골라주세요'}</small></span>
         <div class="chips" id="pf-who">${whoChips(sh)}</div></div>`
       + mediaField('사진', true) + memo;
   }
@@ -1541,7 +1542,16 @@ function openProof(t, i, kind) {
     <button class="btn team" type="submit" id="pf-submit">${pf.edit ? '수정 저장' : '칸 채우기'}</button>
   </form>`);
   drawProblemPick();
+  drawVsWho();
   drawProofMedia();
+}
+/* 상대 조를 고르면 그 조 조원이 바로 밑에 나온다 */
+function drawVsWho() {
+  const box = document.getElementById('pf-vsby'); if (!box || !pf) return;
+  const opp = pf.vs ? teamMembers(pf.vs) : [];
+  box.innerHTML = !pf.vs ? '<p class="hint">위에서 상대 조를 먼저 골라주세요.</p>'
+    : opp.length ? opp.map(m => `<button type="button" class="chip" data-act="pf-vsby" data-id="${m.id}" aria-pressed="${pf.vsBy === m.id}">${esc(m.name)}</button>`).join('')
+    : `<p class="hint">${pf.vs}조에 등록된 조원이 없어요.</p>`;
 }
 function drawProofMedia() {
   const box = document.getElementById('pf-media'); if (!box) return;
@@ -1612,10 +1622,13 @@ async function submitProof() {
     if (!pf.mission || (!m && !same)) return showErr(err, '어떤 대결에서 이겼는지 골라주세요.');
     if (duelUsed(cells, i).has(pf.mission)) return showErr(err, '이 대결 미션은 이미 다른 칸에 썼어요.');
     if (!pf.vs) return showErr(err, '상대 조를 골라주세요.');
-    if (members.length && pf.by.size !== 1) return showErr(err, '누가 나갔는지 한 명을 골라주세요.');
+    const opp = teamMembers(pf.vs);
+    if (opp.length && !opp.some(o => o.id === pf.vsBy)) return showErr(err, `${pf.vs}조에서 누가 나왔는지 한 명을 골라주세요.`);
+    if (members.length && pf.by.size !== 1) return showErr(err, '우리 조에서 누가 나갔는지 한 명을 골라주세요.');
     const full = shareErr(shareOf(t, kind, i), [...pf.by][0], kind);
     if (full) return showErr(err, full);
     extra = m ? { missionId: pf.mission, no: m.no, mTitle: m.title, mDesc: m.desc || '', vs: pf.vs } : { missionId: c.missionId, no: c.no, mTitle: c.mTitle, mDesc: c.mDesc || '', vs: pf.vs };
+    if (opp.length) extra.vsBy = pf.vsBy;
     const img = m ? m.img : c.mImg;
     if (img) extra.mImg = img.th ? { p: img.p, th: img.th } : { p: img.p };
     title = extra.mTitle;
@@ -1841,7 +1854,8 @@ document.addEventListener('click', async e => {
       break;
     }
     case 'pf-mission': if (pf && !pf.busy) { pf.mission = d.id; el.parentElement.querySelectorAll('.qrow').forEach(b => b.setAttribute('aria-pressed', b === el)); } break;
-    case 'pf-vs': if (pf && !pf.busy) { pf.vs = +d.v; el.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); } break;
+    case 'pf-vs': if (pf && !pf.busy) { if (pf.vs !== +d.v) pf.vsBy = ''; pf.vs = +d.v; el.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); drawVsWho(); } break;
+    case 'pf-vsby': if (pf && !pf.busy) { pf.vsBy = pf.vsBy === d.id ? '' : d.id; el.parentElement.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', b.dataset.id === pf.vsBy)); } break;
     case 'pf-rm': if (pf && !pf.busy) { pf.media.splice(+d.k, 1); drawProofMedia(); } break;
     case 'clearcell': if (canChange(t) && armed(el, '한 번 더 누르면 칸이 비워져요')) { const old = S.cells[t + '-' + i]; dropMedia(old); if (old) { const k = cellKey(old); dropComments(x => x.k === k); } await del('cells', t + '-' + i); location.hash = 'team-' + t; toast('칸을 비웠어요.'); } break;
     case 'call': openCall(t, i); break;
